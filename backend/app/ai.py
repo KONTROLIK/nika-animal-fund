@@ -1,7 +1,6 @@
 import json
 import re
 import httpx
-from datetime import datetime, timezone
 from .config import get_settings
 
 
@@ -90,6 +89,8 @@ class AIService:
                 except json.JSONDecodeError:
                     pass
         lower = text.lower()
+        if any(marker in lower for marker in ("пропустить", "не хочу отвечать", "отвечу потом")):
+            return {"preferences": {}, "facts": {topic_id: "Вопрос пропущен по просьбе пользователя."}, "topic_complete": True, "summary": ""}
         preferences = {}
         if "собак" in lower:
             preferences["pet_type"] = "Собака"
@@ -101,7 +102,25 @@ class AIService:
             preferences["home"] = "Квартира"
         elif "дом" in lower:
             preferences["home"] = "Дом"
-        return {"preferences": preferences, "facts": {topic_id: text.strip()}, "topic_complete": True, "summary": ""}
+        topic_markers = {
+            "routine": ("будн", "выходн", "работ", "день"),
+            "time": ("час", "дома", "один", "отсутств"),
+            "home": ("квартир", "дом", "двор", "лестниц", "место"),
+            "household": ("семь", "жив", "дет", "пожил", "близк"),
+            "animals": ("кот", "собак", "живот", "питом"),
+            "experience": ("раньше", "опыт", "был питом", "заботил"),
+            "temperament": ("спокой", "ласк", "энерг", "характер", "общител"),
+            "activity": ("гуля", "игр", "обуч", "занят", "прогул"),
+            "care": ("уход", "ветеринар", "корм", "режим", "обязан"),
+            "health": ("аллер", "здоров", "огранич", "медицин"),
+            "budget": ("руб", "расход", "бюджет", "стоим", "финанс"),
+            "motivation": ("хочу", "почему", "дать", "причин", "мечт"),
+            "expectations": ("ожида", "первые", "привык", "вместе", "представля"),
+            "boundaries": ("не готов", "сложн", "не хочу", "границ", "терпел"),
+            "support": ("помощ", "сосед", "родствен", "отпуск", "форс-мажор"),
+        }
+        topic_complete = any(marker in lower for marker in topic_markers.get(topic_id, ())) and len(text.strip()) >= 8
+        return {"preferences": preferences, "facts": {topic_id: text.strip()}, "topic_complete": topic_complete, "summary": ""}
 
     async def narrate(self, text: str, preference: dict, recommendations: list[dict], portrait: dict | None = None, next_topic: tuple | None = None) -> str:
         names = ", ".join(item["name"] for item in recommendations[:3]) or "питомцев из каталога"

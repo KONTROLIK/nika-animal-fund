@@ -42,6 +42,32 @@ def portrait_status(portrait: OwnerPortrait) -> PortraitStatusOut:
     )
 
 
+def answer_covers_topic(topic_id: str, text: str) -> bool:
+    lower = text.lower()
+    if len(text.strip()) < 8:
+        return False
+    if any(marker in lower for marker in ("пропустить", "не хочу отвечать", "отвечу потом")):
+        return True
+    markers = {
+        "routine": ("будн", "выходн", "работ", "день"),
+        "time": ("час", "дома", "один", "отсутств"),
+        "home": ("квартир", "дом", "двор", "лестниц", "место"),
+        "household": ("семь", "жив", "дет", "пожил", "близк"),
+        "animals": ("кот", "собак", "живот", "питом"),
+        "experience": ("раньше", "опыт", "питом", "заботил"),
+        "temperament": ("спокой", "ласк", "энерг", "характер", "общител"),
+        "activity": ("гуля", "игр", "обуч", "занят", "прогул"),
+        "care": ("уход", "ветеринар", "корм", "режим", "обязан"),
+        "health": ("аллер", "здоров", "огранич", "медицин"),
+        "budget": ("руб", "расход", "бюджет", "стоим", "финанс"),
+        "motivation": ("хочу", "почему", "дать", "причин", "мечт"),
+        "expectations": ("ожида", "первые", "привык", "вместе", "представля"),
+        "boundaries": ("не готов", "сложн", "не хочу", "границ", "терпел"),
+        "support": ("помощ", "сосед", "родствен", "отпуск", "форс-мажор"),
+    }
+    return any(marker in lower for marker in markers.get(topic_id, ()))
+
+
 def new_conversation(db: Session, user: User):
     conversation = Conversation(user_id=user.id, title="Первое знакомство")
     db.add(conversation)
@@ -50,8 +76,30 @@ def new_conversation(db: Session, user: User):
     return conversation
 
 
-def recommendation_query(db: Session, limit: int = 6):
-    return list(db.scalars(select(Animal).where(Animal.is_available.is_(True)).order_by(Animal.name).limit(limit)))
+def recommendation_query(db: Session, preference: Preference | None = None, portrait: OwnerPortrait | None = None, limit: int = 6):
+    animals = list(db.scalars(select(Animal).where(Animal.is_available.is_(True))))
+    visible = preference_dict(preference) if preference else {}
+    private_text = " ".join(str(value) for value in (portrait.facts or {}).values()) if portrait else ""
+    private_text = f"{private_text} {(portrait.summary or '') if portrait else ''}".lower()
+
+    def score(animal: Animal):
+        text = " ".join(filter(None, [animal.description, animal.character, animal.suitable_for, animal.health, animal.shelter])).lower()
+        points = 0
+        if visible.get("pet_type") and visible["pet_type"] == animal.species:
+            points += 12
+        if visible.get("home") == "Квартира" and "квартир" in text:
+            points += 5
+        if visible.get("rhythm") == "Активный" and any(word in text for word in ("прогул", "актив", "игр", "бег")):
+            points += 4
+        if "дет" in private_text:
+            points += 3 if animal.children_compatible else -2 if animal.children_compatible is False else 0
+        if any(word in private_text for word in ("другие живот", "есть кот", "есть собак")):
+            points += 3 if animal.pets_compatible else -2 if animal.pets_compatible is False else 0
+        if any(word in private_text for word in ("спокой", "тих")) and any(word in text for word in ("спокой", "скром", "нежн")):
+            points += 3
+        return points, animal.name
+
+    return sorted(animals, key=score, reverse=True)[:limit]
 
 
 @app.get("/api/health")
@@ -188,7 +236,8 @@ async def chat(payload: ChatIn, user: User = Depends(current_user), db: Session 
     facts.update(analyzed.get("facts") or {})
     answers = list(portrait.answers or [])
     answers.append({"topic": topic[0], "answer": payload.content.strip(), "at": datetime.now(timezone.utc).isoformat()})
-    if topic[0] not in covered:
+    topic_complete = analyzed.get("topic_complete", False) or answer_covers_topic(topic[0], payload.content)
+    if topic_complete and topic[0] not in covered:
         covered.add(topic[0])
     portrait.facts = facts
     portrait.answers = answers[-100:]
@@ -199,8 +248,10 @@ async def chat(payload: ChatIn, user: User = Depends(current_user), db: Session 
         portrait.summary = analyzed["summary"]
     portrait.question_index = min(len(covered), len(PORTRAIT_TOPICS))
     db.commit()
-    animals_for_reply = recommendation_query(db)
+    animals_for_reply = recommendation_query(db, preference, portrait)
     next_topic = next((item for item in PORTRAIT_TOPICS if item[0] not in covered), None)
+    if not topic_complete:
+        next_topic = topic
     await events.publish({"type": "preferences_updated", "user_id": user.id, "fields": list(extracted), "at": datetime.now(timezone.utc).isoformat()})
     await events.publish({"type": "portrait_updated", "user_id": user.id, "covered_topics": len(covered), "total_topics": len(PORTRAIT_TOPICS), "at": datetime.now(timezone.utc).isoformat()})
     await events.publish_user(user.id, {"type": "portrait_updated", "stage": "portrait", "completeness": portrait.completeness, "covered_topics": len(covered), "total_topics": len(PORTRAIT_TOPICS), "at": datetime.now(timezone.utc).isoformat()})
