@@ -9,7 +9,7 @@ from .config import get_settings
 from .db import get_db
 from .models import Animal, Conversation, Favorite, Message, OwnerPortrait, Preference, PreferenceChange, Swipe, User
 from .realtime import events
-from .schemas import AISettingsIn, AISettingsOut, AnimalOut, ChatIn, ChatOut, ConversationOut, LoginIn, ManagerUserOut, MessageOut, PreferenceIn, PreferenceOut, PortraitStatusOut, PortraitTopic, RegisterIn, SwipeIn, TokenOut, UserOut
+from .schemas import AISettingsIn, AISettingsOut, AccountUpdateIn, AnimalOut, ChatIn, ChatOut, ConversationOut, LoginIn, ManagerUserOut, MessageOut, PreferenceIn, PreferenceOut, PortraitStatusOut, PortraitTopic, RegisterIn, SwipeIn, TokenOut, UserOut
 from .secrets import encrypt_secret
 from .models import AISettingsRecord
 
@@ -104,6 +104,10 @@ def recommendation_query(db: Session, preference: Preference | None = None, port
     return sorted(animals, key=score, reverse=True)[:limit]
 
 
+def interview_complete(portrait: OwnerPortrait) -> bool:
+    return len(set(portrait.covered_topics or [])) >= len(PORTRAIT_TOPICS)
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok", "service": "pet-connect"}
@@ -139,6 +143,24 @@ def login(payload: LoginIn, db: Session = Depends(get_db)):
 
 @app.get("/api/me", response_model=UserOut)
 def me(user: User = Depends(current_user)):
+    return user
+
+
+@app.patch("/api/account", response_model=UserOut)
+def update_account(payload: AccountUpdateIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    email = payload.email.lower()
+    existing = db.scalar(select(User).where(User.email == email, User.id != user.id))
+    if existing:
+        raise HTTPException(409, "Пользователь с таким email уже зарегистрирован")
+    user.name = payload.name.strip()
+    user.email = email
+    user.phone = payload.phone or None
+    user.city = payload.city or None
+    user.postal_code = payload.postal_code or None
+    user.address = payload.address or None
+    user.contact_method = payload.contact_method or None
+    db.commit()
+    db.refresh(user)
     return user
 
 
@@ -250,14 +272,18 @@ async def chat(payload: ChatIn, user: User = Depends(current_user), db: Session 
         portrait.summary = analyzed["summary"]
     portrait.question_index = min(len(covered), len(PORTRAIT_TOPICS))
     db.commit()
-    animals_for_reply = recommendation_query(db, preference, portrait)
+    complete = interview_complete(portrait)
+    animals_for_reply = recommendation_query(db, preference, portrait) if complete else []
     next_topic = next((item for item in PORTRAIT_TOPICS if item[0] not in covered), None)
     if not topic_complete:
         next_topic = topic
     await events.publish({"type": "preferences_updated", "user_id": user.id, "fields": list(extracted), "at": datetime.now(timezone.utc).isoformat()})
     await events.publish({"type": "portrait_updated", "user_id": user.id, "covered_topics": len(covered), "total_topics": len(PORTRAIT_TOPICS), "at": datetime.now(timezone.utc).isoformat()})
     await events.publish_user(user.id, {"type": "portrait_updated", "stage": "portrait", "completeness": portrait.completeness, "covered_topics": len(covered), "total_topics": len(PORTRAIT_TOPICS), "at": datetime.now(timezone.utc).isoformat()})
-    await events.publish_user(user.id, {"type": "recommendation_started", "stage": "recommendations", "at": datetime.now(timezone.utc).isoformat()})
+    if complete:
+        await events.publish({"type": "interview_complete", "user_id": user.id, "at": datetime.now(timezone.utc).isoformat()})
+        await events.publish_user(user.id, {"type": "interview_complete", "stage": "recommendations", "at": datetime.now(timezone.utc).isoformat()})
+        await events.publish_user(user.id, {"type": "recommendation_started", "stage": "recommendations", "at": datetime.now(timezone.utc).isoformat()})
     reply = await ai.narrate(payload.content, preference_dict(preference), [{"name": animal.name} for animal in animals_for_reply], facts, next_topic, db=db)
     assistant_message = Message(conversation_id=conversation.id, role="assistant", content=reply)
     conversation.title = "Подбор питомца"
@@ -295,12 +321,19 @@ def remove_favorite(animal_id: int, user: User = Depends(current_user), db: Sess
 
 @app.get("/api/tinder/next", response_model=list[AnimalOut])
 def tinder_next(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    portrait = portrait_for(db, user.id)
+    if not interview_complete(portrait):
+        raise HTTPException(409, "Сначала завершите интервью — после этого откроется подбор карточек")
     swiped = select(Swipe.animal_id).where(Swipe.user_id == user.id)
-    return list(db.scalars(select(Animal).where(Animal.is_available.is_(True), Animal.id.not_in(swiped)).order_by(Animal.name).limit(20)))
+    ranked = recommendation_query(db, db.scalar(select(Preference).where(Preference.user_id == user.id)), portrait, limit=100)
+    return [animal for animal in ranked if animal.id not in set(db.scalars(swiped))][:20]
 
 
 @app.post("/api/tinder/{animal_id}")
 def tinder_swipe(animal_id: int, payload: SwipeIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    portrait = portrait_for(db, user.id)
+    if not interview_complete(portrait):
+        raise HTTPException(409, "Сначала завершите интервью — после этого откроется подбор карточек")
     if not db.get(Animal, animal_id):
         raise HTTPException(404, "Питомец не найден")
     existing = db.scalar(select(Swipe).where(Swipe.user_id == user.id, Swipe.animal_id == animal_id))

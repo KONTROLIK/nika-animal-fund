@@ -7,6 +7,11 @@ class UserOut(BaseModel):
     id: int
     name: str
     email: EmailStr
+    phone: str | None = None
+    city: str | None = None
+    postal_code: str | None = None
+    address: str | None = None
+    contact_method: str | None = None
     role: str
     created_at: datetime
 
@@ -20,6 +25,16 @@ class RegisterIn(BaseModel):
 class LoginIn(BaseModel):
     email: EmailStr
     password: str
+
+
+class AccountUpdateIn(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    email: EmailStr
+    phone: str | None = Field(default=None, max_length=40)
+    city: str | None = Field(default=None, max_length=120)
+    postal_code: str | None = Field(default=None, max_length=20)
+    address: str | None = Field(default=None, max_length=300)
+    contact_method: str | None = Field(default=None, pattern="^(email|phone|telegram)$")
 
 
 class PreferenceOut(BaseModel):
