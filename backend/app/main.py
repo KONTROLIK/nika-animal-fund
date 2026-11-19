@@ -48,7 +48,7 @@ def answer_covers_topic(topic_id: str, text: str) -> bool:
     lower = text.lower()
     if len(text.strip()) < 8:
         return False
-    if any(marker in lower for marker in ("пропустить", "не хочу отвечать", "отвечу потом")):
+    if any(marker in lower for marker in ("пропустить", "не хочу отвечать", "отвечу потом", "пока не знаю")):
         return True
     markers = {
         "routine": ("будн", "выходн", "работ", "день"),
