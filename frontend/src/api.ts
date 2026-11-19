@@ -1,9 +1,12 @@
 export type User = { id: number; name: string; email: string; role: string; created_at: string }
 export type Animal = { id: number; source_id: string; name: string; age: string; gender: string; species: string; breed: string | null; shelter: string; guardians: string; description: string | null; character: string | null; suitable_for: string | null; health: string | null; image_url: string; source_url: string; gallery: string[]; is_available: boolean }
 export type Preference = { pet_type: string | null; rhythm: string | null; home: string | null; wishes: string | null; updated_at: string }
+export type PortraitTopic = { id: string; label: string; covered: boolean }
+export type PortraitStatus = { completeness: number; answer_count: number; next_topic: string | null; topics: PortraitTopic[] }
 export type Message = { id: number; role: 'user' | 'assistant'; content: string; created_at: string }
 export type Conversation = { id: number; title: string; created_at: string; updated_at: string }
-export type ChatResult = { conversation: Conversation; user_message: Message; assistant_message: Message; preference: Preference; recommendations: Animal[] }
+export type ChatResult = { conversation: Conversation; user_message: Message; assistant_message: Message; preference: Preference; recommendations: Animal[]; portrait: PortraitStatus }
+export type ManagerDetails = { user: User; preference: Preference | null; portrait: { summary: string | null; facts: Record<string, string>; answers: Array<{ topic: string; answer: string; at: string }>; status: PortraitStatus }; favorites: Animal[]; conversations: Array<{ id: number; title: string; messages: Message[] }> }
 
 const API = import.meta.env.VITE_API_BASE || ''
 const tokenKey = 'petconnect-token'
@@ -30,6 +33,7 @@ export const api = {
   me: () => request<User>('/api/me'),
   animals: (without = false) => request<Animal[]>(`/api/animals${without ? '?only_without_guardians=true' : ''}`),
   profile: () => request<Preference>('/api/profile'),
+  portrait: () => request<PortraitStatus>('/api/portrait'),
   updateProfile: (body: Partial<Preference>) => request<Preference>('/api/profile', { method: 'PATCH', body: JSON.stringify(body) }),
   history: () => request<Array<{ field: string; old_value: string | null; new_value: string | null; created_at: string }>>('/api/profile/history'),
   conversations: () => request<Conversation[]>('/api/conversations'),
@@ -42,5 +46,5 @@ export const api = {
   swipe: (id: number, decision: 'like' | 'skip') => request(`/api/tinder/${id}`, { method: 'POST', body: JSON.stringify({ decision }) }),
   managerOverview: () => request<{ users: number; animals: number; conversations: number; without_guardians: number }>('/api/manager/overview'),
   managerUsers: () => request<Array<User & { preference: Preference | null; favorite_count: number; conversation_count: number }>>('/api/manager/users'),
-  managerUser: (id: number) => request(`/api/manager/users/${id}`),
+  managerUser: (id: number) => request<ManagerDetails>(`/api/manager/users/${id}`),
 }

@@ -3,13 +3,13 @@ from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconn
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
-from .ai import AIService
+from .ai import AIService, PORTRAIT_TOPICS
 from .auth import create_token, current_user, hash_password, manager_only, verify_password
 from .config import get_settings
 from .db import get_db
-from .models import Animal, Conversation, Favorite, Message, Preference, PreferenceChange, Swipe, User
+from .models import Animal, Conversation, Favorite, Message, OwnerPortrait, Preference, PreferenceChange, Swipe, User
 from .realtime import events
-from .schemas import AnimalOut, ChatIn, ChatOut, ConversationOut, LoginIn, ManagerUserOut, MessageOut, PreferenceIn, PreferenceOut, RegisterIn, SwipeIn, TokenOut, UserOut
+from .schemas import AnimalOut, ChatIn, ChatOut, ConversationOut, LoginIn, ManagerUserOut, MessageOut, PreferenceIn, PreferenceOut, PortraitStatusOut, PortraitTopic, RegisterIn, SwipeIn, TokenOut, UserOut
 
 
 app = FastAPI(title="PET CONNECT API", version="1.0.0")
@@ -22,11 +22,31 @@ def preference_dict(preference):
     return {"pet_type": preference.pet_type, "rhythm": preference.rhythm, "home": preference.home, "wishes": preference.wishes}
 
 
+def portrait_for(db: Session, user_id: int) -> OwnerPortrait:
+    portrait = db.scalar(select(OwnerPortrait).where(OwnerPortrait.user_id == user_id))
+    if not portrait:
+        portrait = OwnerPortrait(user_id=user_id)
+        db.add(portrait)
+        db.flush()
+    return portrait
+
+
+def portrait_status(portrait: OwnerPortrait) -> PortraitStatusOut:
+    covered = set(portrait.covered_topics or [])
+    next_topic = next((topic for topic in PORTRAIT_TOPICS if topic[0] not in covered), None)
+    return PortraitStatusOut(
+        completeness=portrait.completeness,
+        answer_count=portrait.answer_count,
+        next_topic=next_topic[0] if next_topic else None,
+        topics=[PortraitTopic(id=topic[0], label=topic[1], covered=topic[0] in covered) for topic in PORTRAIT_TOPICS],
+    )
+
+
 def new_conversation(db: Session, user: User):
     conversation = Conversation(user_id=user.id, title="Первое знакомство")
     db.add(conversation)
     db.flush()
-    db.add(Message(conversation_id=conversation.id, role="assistant", content="Привет! Помогу найти питомца, который подойдёт твоему образу жизни. Кого ты хотел бы приютить — собаку, кошку или пока не определился?"))
+    db.add(Message(conversation_id=conversation.id, role="assistant", content="Привет! Помогу найти питомца, который подойдёт именно твоей жизни. Кого ты хотел бы приютить — собаку, кошку или пока не определился? А потом я задам несколько более глубоких вопросов — о ритме дня, доме, опыте и том, каким ты видишь вашу жизнь вместе."))
     return conversation
 
 
@@ -48,6 +68,7 @@ def register(payload: RegisterIn, db: Session = Depends(get_db)):
     db.add(user)
     db.flush()
     db.add(Preference(user_id=user.id))
+    db.add(OwnerPortrait(user_id=user.id))
     conversation = new_conversation(db, user)
     db.commit()
     db.refresh(user)
@@ -82,6 +103,13 @@ def animals(only_without_guardians: bool = False, db: Session = Depends(get_db))
 @app.get("/api/profile", response_model=PreferenceOut)
 def get_profile(user: User = Depends(current_user), db: Session = Depends(get_db)):
     return db.scalar(select(Preference).where(Preference.user_id == user.id))
+
+
+@app.get("/api/portrait", response_model=PortraitStatusOut)
+def get_portrait_status(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    portrait = portrait_for(db, user.id)
+    db.commit()
+    return portrait_status(portrait)
 
 
 @app.patch("/api/profile", response_model=PreferenceOut)
@@ -141,17 +169,43 @@ async def chat(payload: ChatIn, user: User = Depends(current_user), db: Session 
         preference = Preference(user_id=user.id)
         db.add(preference)
         db.flush()
+    portrait = portrait_for(db, user.id)
     db.commit()
-    await events.publish({"type": "user_message", "user_id": user.id, "conversation_id": conversation.id, "at": datetime.now(timezone.utc).isoformat()})
-    extracted = await ai.analyze(payload.content)
+    timestamp = datetime.now(timezone.utc).isoformat()
+    await events.publish({"type": "user_message", "user_id": user.id, "conversation_id": conversation.id, "at": timestamp})
+    await events.publish_user(user.id, {"type": "dialog_received", "stage": "received", "at": timestamp})
+    covered = set(portrait.covered_topics or [])
+    topic = next((item for item in PORTRAIT_TOPICS if item[0] not in covered), PORTRAIT_TOPICS[-1])
+    await events.publish({"type": "portrait_analysis_started", "user_id": user.id, "topic": topic[0], "at": datetime.now(timezone.utc).isoformat()})
+    await events.publish_user(user.id, {"type": "portrait_analysis_started", "stage": "analysis", "topic": topic[1], "at": datetime.now(timezone.utc).isoformat()})
+    analyzed = await ai.analyze_portrait(payload.content, topic[0], {"facts": portrait.facts or {}, "covered_topics": list(covered)})
+    extracted = {key: value for key, value in analyzed.get("preferences", {}).items() if key in {"pet_type", "rhythm", "home", "wishes"} and value}
     for field, value in extracted.items():
         if value and value != getattr(preference, field):
             db.add(PreferenceChange(user_id=user.id, field=field, old_value=getattr(preference, field), new_value=value))
             setattr(preference, field, value)
+    facts = dict(portrait.facts or {})
+    facts.update(analyzed.get("facts") or {})
+    answers = list(portrait.answers or [])
+    answers.append({"topic": topic[0], "answer": payload.content.strip(), "at": datetime.now(timezone.utc).isoformat()})
+    if topic[0] not in covered:
+        covered.add(topic[0])
+    portrait.facts = facts
+    portrait.answers = answers[-100:]
+    portrait.covered_topics = list(covered)
+    portrait.answer_count = len(portrait.answers)
+    portrait.completeness = round(len(covered) / len(PORTRAIT_TOPICS) * 100)
+    if analyzed.get("summary"):
+        portrait.summary = analyzed["summary"]
+    portrait.question_index = min(len(covered), len(PORTRAIT_TOPICS))
     db.commit()
     animals_for_reply = recommendation_query(db)
+    next_topic = next((item for item in PORTRAIT_TOPICS if item[0] not in covered), None)
     await events.publish({"type": "preferences_updated", "user_id": user.id, "fields": list(extracted), "at": datetime.now(timezone.utc).isoformat()})
-    reply = await ai.narrate(payload.content, preference_dict(preference), [{"name": animal.name} for animal in animals_for_reply])
+    await events.publish({"type": "portrait_updated", "user_id": user.id, "covered_topics": len(covered), "total_topics": len(PORTRAIT_TOPICS), "at": datetime.now(timezone.utc).isoformat()})
+    await events.publish_user(user.id, {"type": "portrait_updated", "stage": "portrait", "completeness": portrait.completeness, "covered_topics": len(covered), "total_topics": len(PORTRAIT_TOPICS), "at": datetime.now(timezone.utc).isoformat()})
+    await events.publish_user(user.id, {"type": "recommendation_started", "stage": "recommendations", "at": datetime.now(timezone.utc).isoformat()})
+    reply = await ai.narrate(payload.content, preference_dict(preference), [{"name": animal.name} for animal in animals_for_reply], facts, next_topic)
     assistant_message = Message(conversation_id=conversation.id, role="assistant", content=reply)
     conversation.title = "Подбор питомца"
     db.add(assistant_message)
@@ -160,7 +214,8 @@ async def chat(payload: ChatIn, user: User = Depends(current_user), db: Session 
     db.refresh(assistant_message)
     db.refresh(conversation)
     await events.publish({"type": "assistant_message", "user_id": user.id, "conversation_id": conversation.id, "at": datetime.now(timezone.utc).isoformat()})
-    return ChatOut(conversation=conversation, user_message=user_message, assistant_message=assistant_message, preference=preference, recommendations=animals_for_reply)
+    await events.publish_user(user.id, {"type": "assistant_message", "stage": "complete", "at": datetime.now(timezone.utc).isoformat()})
+    return ChatOut(conversation=conversation, user_message=user_message, assistant_message=assistant_message, preference=preference, recommendations=animals_for_reply, portrait=portrait_status(portrait))
 
 
 @app.get("/api/favorites", response_model=list[AnimalOut])
@@ -224,7 +279,8 @@ def manager_user_details(user_id: int, _: User = Depends(manager_only), db: Sess
     user = db.get(User, user_id)
     if not user or user.role != "USER":
         raise HTTPException(404, "Пользователь не найден")
-    return {"user": UserOut.model_validate(user), "preference": PreferenceOut.model_validate(user.preference) if user.preference else None, "favorites": [AnimalOut.model_validate(x) for x in db.scalars(select(Animal).join(Favorite, Favorite.animal_id == Animal.id).where(Favorite.user_id == user_id))], "conversations": [{"id": c.id, "title": c.title, "messages": [MessageOut.model_validate(m) for m in c.messages]} for c in db.scalars(select(Conversation).where(Conversation.user_id == user_id))]}
+    portrait = portrait_for(db, user_id)
+    return {"user": UserOut.model_validate(user), "preference": PreferenceOut.model_validate(user.preference) if user.preference else None, "portrait": {"summary": portrait.summary, "facts": portrait.facts, "answers": portrait.answers, "status": portrait_status(portrait).model_dump()}, "favorites": [AnimalOut.model_validate(x) for x in db.scalars(select(Animal).join(Favorite, Favorite.animal_id == Animal.id).where(Favorite.user_id == user_id))], "conversations": [{"id": c.id, "title": c.title, "messages": [MessageOut.model_validate(m) for m in c.messages]} for c in db.scalars(select(Conversation).where(Conversation.user_id == user_id))]}
 
 
 @app.websocket("/ws/events")
@@ -243,6 +299,27 @@ async def event_stream(websocket: WebSocket):
         await websocket.close(code=4401)
         return
     await events.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        events.disconnect(websocket)
+
+
+@app.websocket("/ws/portrait")
+async def portrait_stream(websocket: WebSocket):
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=4401)
+        return
+    try:
+        from jose import jwt
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
+        user_id = int(payload["sub"])
+    except Exception:
+        await websocket.close(code=4401)
+        return
+    await events.connect_user(user_id, websocket)
     try:
         while True:
             await websocket.receive_text()

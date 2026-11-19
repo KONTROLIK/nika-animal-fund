@@ -38,6 +38,19 @@ class PreferenceIn(BaseModel):
     wishes: str | None = Field(default=None, max_length=3000)
 
 
+class PortraitTopic(BaseModel):
+    id: str
+    label: str
+    covered: bool
+
+
+class PortraitStatusOut(BaseModel):
+    completeness: int
+    answer_count: int
+    next_topic: str | None = None
+    topics: list[PortraitTopic]
+
+
 class AnimalOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -88,6 +101,7 @@ class ChatOut(BaseModel):
     assistant_message: MessageOut
     preference: PreferenceOut
     recommendations: list[AnimalOut]
+    portrait: PortraitStatusOut
 
 
 class TokenOut(BaseModel):

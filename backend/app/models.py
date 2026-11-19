@@ -13,6 +13,7 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(20), default="USER", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     preference: Mapped["Preference | None"] = relationship(back_populates="user", uselist=False, cascade="all, delete-orphan")
+    portrait: Mapped["OwnerPortrait | None"] = relationship(back_populates="user", uselist=False, cascade="all, delete-orphan")
     conversations: Mapped[list["Conversation"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
@@ -36,6 +37,21 @@ class PreferenceChange(Base):
     old_value: Mapped[str | None] = mapped_column(Text)
     new_value: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class OwnerPortrait(Base):
+    __tablename__ = "owner_portraits"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True)
+    facts: Mapped[dict] = mapped_column(JSON, default=dict)
+    answers: Mapped[list] = mapped_column(JSON, default=list)
+    covered_topics: Mapped[list] = mapped_column(JSON, default=list)
+    summary: Mapped[str | None] = mapped_column(Text)
+    question_index: Mapped[int] = mapped_column(Integer, default=0)
+    answer_count: Mapped[int] = mapped_column(Integer, default=0)
+    completeness: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    user: Mapped[User] = relationship(back_populates="portrait")
 
 
 class Conversation(Base):
