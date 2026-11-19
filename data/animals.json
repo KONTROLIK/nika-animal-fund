@@ -1,0 +1,72 @@
+[
+  {
+    "id": "porsh",
+    "name": "Порш",
+    "details": "7 лет 3 месяца, мальчик",
+    "image": "https://nika-design.pages.dev/sayt-2/assets/sayt/zhivotnye/porsh-1.jpg",
+    "link": "https://nika-design.pages.dev/podopechnye/#zhivotnoe/porsh-322877"
+  },
+  {
+    "id": "iriska",
+    "name": "Ириска",
+    "details": "8 лет 9 месяцев, девочка",
+    "image": "https://nika-design.pages.dev/sayt-2/assets/sayt/zhivotnye/iriska-1.jpg",
+    "link": "https://nika-design.pages.dev/podopechnye/#zhivotnoe/iriska-265713"
+  },
+  {
+    "id": "mishel",
+    "name": "Мишель",
+    "details": "7 лет 9 месяцев, мальчик",
+    "image": "https://nika-design.pages.dev/sayt-2/assets/sayt/zhivotnye/mishel-1.jpg",
+    "link": "https://nika-design.pages.dev/podopechnye/#zhivotnoe/mishel-265957"
+  },
+  {
+    "id": "yustas",
+    "name": "Юстас",
+    "details": "6 лет 8 месяцев, мальчик",
+    "image": "https://nika-design.pages.dev/sayt-2/assets/sayt/zhivotnye/yustas-1.jpg",
+    "link": "https://nika-design.pages.dev/podopechnye/#zhivotnoe/yustas-266007"
+  },
+  {
+    "id": "akvella",
+    "name": "Аквелла",
+    "details": "4 года 3 месяца, девочка",
+    "image": "https://nika-design.pages.dev/sayt-2/assets/sayt/zhivotnye/akvella-1.jpg",
+    "link": "https://nika-design.pages.dev/podopechnye/#zhivotnoe/akvella-309755"
+  },
+  {
+    "id": "lyupin",
+    "name": "Люпин",
+    "details": "1 год 9 месяцев, мальчик",
+    "image": "https://nika-design.pages.dev/sayt-2/assets/sayt/zhivotnye/lyupin-1.jpg",
+    "link": "https://nika-design.pages.dev/podopechnye/#zhivotnoe/lyupin-516317"
+  },
+  {
+    "id": "belyash",
+    "name": "Беляш",
+    "details": "5 лет, мальчик",
+    "image": "https://nika-design.pages.dev/sayt-2/assets/sayt/zhivotnye/belyash-1.jpg",
+    "link": "https://nika-design.pages.dev/podopechnye/#zhivotnoe/belyash-753457"
+  },
+  {
+    "id": "lemur",
+    "name": "Лемур",
+    "details": "4 месяца, мальчик",
+    "image": "https://nika-design.pages.dev/sayt-2/assets/sayt/zhivotnye/lemur-1.jpg",
+    "link": "https://nika-design.pages.dev/podopechnye/#zhivotnoe/lemur-724099"
+  },
+  {
+    "id": "smayl",
+    "name": "Смайл",
+    "details": "13 лет 9 месяцев, мальчик",
+    "image": "https://nika-design.pages.dev/sayt-2/assets/sayt/zhivotnye/smayl-1.jpg",
+    "link": "https://nika-design.pages.dev/podopechnye/#zhivotnoe/smayl-265987"
+  },
+  {
+    "id": "tom",
+    "name": "Том",
+    "details": "7 лет 9 месяцев, мальчик",
+    "image": "https://nika-design.pages.dev/sayt-2/assets/sayt/zhivotnye/tom-1.jpg",
+    "link": "https://fond-nika.ru/ourpets/tom-265997/"
+  }
+]
