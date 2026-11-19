@@ -9,7 +9,9 @@ from .config import get_settings
 from .db import get_db
 from .models import Animal, Conversation, Favorite, Message, OwnerPortrait, Preference, PreferenceChange, Swipe, User
 from .realtime import events
-from .schemas import AnimalOut, ChatIn, ChatOut, ConversationOut, LoginIn, ManagerUserOut, MessageOut, PreferenceIn, PreferenceOut, PortraitStatusOut, PortraitTopic, RegisterIn, SwipeIn, TokenOut, UserOut
+from .schemas import AISettingsIn, AISettingsOut, AnimalOut, ChatIn, ChatOut, ConversationOut, LoginIn, ManagerUserOut, MessageOut, PreferenceIn, PreferenceOut, PortraitStatusOut, PortraitTopic, RegisterIn, SwipeIn, TokenOut, UserOut
+from .secrets import encrypt_secret
+from .models import AISettingsRecord
 
 
 app = FastAPI(title="PET CONNECT API", version="1.0.0")
@@ -226,7 +228,7 @@ async def chat(payload: ChatIn, user: User = Depends(current_user), db: Session 
     topic = next((item for item in PORTRAIT_TOPICS if item[0] not in covered), PORTRAIT_TOPICS[-1])
     await events.publish({"type": "portrait_analysis_started", "user_id": user.id, "topic": topic[0], "at": datetime.now(timezone.utc).isoformat()})
     await events.publish_user(user.id, {"type": "portrait_analysis_started", "stage": "analysis", "topic": topic[1], "at": datetime.now(timezone.utc).isoformat()})
-    analyzed = await ai.analyze_portrait(payload.content, topic[0], {"facts": portrait.facts or {}, "covered_topics": list(covered)})
+    analyzed = await ai.analyze_portrait(payload.content, topic[0], {"facts": portrait.facts or {}, "covered_topics": list(covered)}, db=db)
     extracted = {key: value for key, value in analyzed.get("preferences", {}).items() if key in {"pet_type", "rhythm", "home", "wishes"} and value}
     for field, value in extracted.items():
         if value and value != getattr(preference, field):
@@ -256,7 +258,7 @@ async def chat(payload: ChatIn, user: User = Depends(current_user), db: Session 
     await events.publish({"type": "portrait_updated", "user_id": user.id, "covered_topics": len(covered), "total_topics": len(PORTRAIT_TOPICS), "at": datetime.now(timezone.utc).isoformat()})
     await events.publish_user(user.id, {"type": "portrait_updated", "stage": "portrait", "completeness": portrait.completeness, "covered_topics": len(covered), "total_topics": len(PORTRAIT_TOPICS), "at": datetime.now(timezone.utc).isoformat()})
     await events.publish_user(user.id, {"type": "recommendation_started", "stage": "recommendations", "at": datetime.now(timezone.utc).isoformat()})
-    reply = await ai.narrate(payload.content, preference_dict(preference), [{"name": animal.name} for animal in animals_for_reply], facts, next_topic)
+    reply = await ai.narrate(payload.content, preference_dict(preference), [{"name": animal.name} for animal in animals_for_reply], facts, next_topic, db=db)
     assistant_message = Message(conversation_id=conversation.id, role="assistant", content=reply)
     conversation.title = "Подбор питомца"
     db.add(assistant_message)
@@ -315,6 +317,32 @@ def tinder_swipe(animal_id: int, payload: SwipeIn, user: User = Depends(current_
 @app.get("/api/manager/overview")
 def manager_overview(_: User = Depends(manager_only), db: Session = Depends(get_db)):
     return {"users": db.scalar(select(func.count(User.id)).where(User.role == "USER")) or 0, "animals": db.scalar(select(func.count(Animal.id)).where(Animal.is_available.is_(True))) or 0, "conversations": db.scalar(select(func.count(Conversation.id))) or 0, "without_guardians": db.scalar(select(func.count(Animal.id)).where(Animal.guardians == "Пока без опекунов")) or 0}
+
+
+@app.get("/api/manager/ai-settings", response_model=AISettingsOut)
+def get_ai_settings(_: User = Depends(manager_only), db: Session = Depends(get_db)):
+    record = db.scalar(select(AISettingsRecord).where(AISettingsRecord.id == 1))
+    if not record:
+        return AISettingsOut(enabled=False, has_api_key=False)
+    return AISettingsOut(enabled=record.enabled, has_api_key=bool(record.encrypted_api_key), updated_at=record.updated_at)
+
+
+@app.put("/api/manager/ai-settings", response_model=AISettingsOut)
+def update_ai_settings(payload: AISettingsIn, _: User = Depends(manager_only), db: Session = Depends(get_db)):
+    record = db.scalar(select(AISettingsRecord).where(AISettingsRecord.id == 1))
+    if not record:
+        record = AISettingsRecord(id=1)
+        db.add(record)
+    record.enabled = payload.enabled
+    if payload.clear_api_key:
+        record.encrypted_api_key = None
+    elif payload.api_key and payload.api_key.strip():
+        record.encrypted_api_key = encrypt_secret(payload.api_key.strip())
+    if record.enabled and not record.encrypted_api_key:
+        raise HTTPException(400, "Для включения AI сначала сохраните API-ключ")
+    db.commit()
+    db.refresh(record)
+    return AISettingsOut(enabled=record.enabled, has_api_key=bool(record.encrypted_api_key), updated_at=record.updated_at)
 
 
 @app.get("/api/manager/users", response_model=list[ManagerUserOut])

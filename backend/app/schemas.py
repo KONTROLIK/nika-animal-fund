@@ -51,6 +51,22 @@ class PortraitStatusOut(BaseModel):
     topics: list[PortraitTopic]
 
 
+class AISettingsOut(BaseModel):
+    enabled: bool
+    has_api_key: bool
+    updated_at: datetime | None = None
+
+
+class AISettingsIn(BaseModel):
+    enabled: bool = False
+    api_key: str | None = Field(default=None, max_length=500)
+    clear_api_key: bool = False
+
+
+class AITestIn(BaseModel):
+    agent: str = Field(pattern="^(narrator|expert)$")
+
+
 class AnimalOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int

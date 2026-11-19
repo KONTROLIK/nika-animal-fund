@@ -54,6 +54,17 @@ class OwnerPortrait(Base):
     user: Mapped[User] = relationship(back_populates="portrait")
 
 
+class AISettingsRecord(Base):
+    __tablename__ = "ai_settings"
+    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    encrypted_api_key: Mapped[str | None] = mapped_column(Text)
+    base_url: Mapped[str] = mapped_column(String(300), default="https://anymodel.org/v1")
+    narrator_model: Mapped[str] = mapped_column(String(160), default="am/nemotron-3-ultra-550b-a55b")
+    expert_model: Mapped[str] = mapped_column(String(160), default="am/nemotron-3-ultra-550b-a55b")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
 class Conversation(Base):
     __tablename__ = "conversations"
     id: Mapped[int] = mapped_column(primary_key=True)

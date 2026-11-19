@@ -1,7 +1,15 @@
 import json
 import re
 import httpx
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 from .config import get_settings
+from .models import AISettingsRecord
+from .secrets import decrypt_secret
+
+
+EXPERT_SYSTEM_PROMPT = """Ты — внимательный аналитик подбора питомца. Твоя задача — извлекать только явно сказанные пользователем факты и превращать их в структурированный JSON. Не додумывай чувствительные сведения, не ставь диагнозы и не делай психологических выводов. Если данных мало — оставляй поле пустым. Пиши кратко и по-русски."""
+NARRATOR_SYSTEM_PROMPT = """Ты — тёплый, тактичный и любознательный помощник по выбору питомца. Говори по-человечески, поддерживай пользователя без давления, задавай ровно один следующий вопрос и мягко углубляй разговор. Не раскрывай внутренний портрет владельца, не выдумывай факты о животных и не превращай разговор в анкету."""
 
 
 PORTRAIT_TOPICS = [
@@ -27,26 +35,43 @@ class AIService:
     def __init__(self):
         self.settings = get_settings()
 
-    async def complete(self, messages: list[dict], temperature: float = 0.4) -> str | None:
-        if not self.settings.ai_api_key:
+    def runtime(self, db: Session | None = None, agent: str = "narrator") -> tuple[str, str, str] | None:
+        key = self.settings.ai_api_key
+        base_url = self.settings.ai_base_url
+        model = self.settings.ai_model
+        if db is not None:
+            record = db.scalar(select(AISettingsRecord).where(AISettingsRecord.id == 1))
+            if not record or not record.enabled:
+                return None
+            key = decrypt_secret(record.encrypted_api_key)
+            base_url = record.base_url
+            model = self.settings.ai_model
+        if not key:
             return None
+        return key, base_url, model
+
+    async def complete(self, messages: list[dict], temperature: float = 0.4, db: Session | None = None, agent: str = "narrator") -> str | None:
+        runtime = self.runtime(db, agent)
+        if not runtime:
+            return None
+        key, base_url, model = runtime
         try:
             async with httpx.AsyncClient(timeout=45) as client:
                 response = await client.post(
-                    f"{self.settings.ai_base_url.rstrip('/')}/chat/completions",
-                    headers={"Authorization": f"Bearer {self.settings.ai_api_key}"},
-                    json={"model": self.settings.ai_model, "messages": messages, "temperature": temperature},
+                    f"{base_url.rstrip('/')}/chat/completions",
+                    headers={"Authorization": f"Bearer {key}"},
+                    json={"model": model, "messages": messages, "temperature": temperature},
                 )
                 response.raise_for_status()
                 return response.json()["choices"][0]["message"]["content"]
         except (httpx.HTTPError, KeyError, IndexError, TypeError):
             return None
 
-    async def analyze(self, text: str) -> dict:
+    async def analyze(self, text: str, db: Session | None = None) -> dict:
         raw = await self.complete([
-            {"role": "system", "content": "You extract pet adoption preferences. Return JSON only with optional keys pet_type, rhythm, home, wishes. Use null when not present. Values may be Russian."},
+            {"role": "system", "content": EXPERT_SYSTEM_PROMPT + " Return JSON only with optional keys pet_type, rhythm, home, wishes."},
             {"role": "user", "content": text},
-        ])
+        ], db=db, agent="expert")
         if raw:
             match = re.search(r"\{.*\}", raw, re.S)
             if match:
@@ -69,12 +94,12 @@ class AIService:
             result["home"] = "Дом"
         return result
 
-    async def analyze_portrait(self, text: str, topic_id: str, portrait: dict) -> dict:
+    async def analyze_portrait(self, text: str, topic_id: str, portrait: dict, db: Session | None = None) -> dict:
         topic = next((item for item in PORTRAIT_TOPICS if item[0] == topic_id), PORTRAIT_TOPICS[0])
         raw = await self.complete([
-            {"role": "system", "content": "You are a careful adoption intake analyst. Extract only facts explicitly stated by the user. Return JSON only: {preferences:{pet_type,rhythm,home,wishes}, facts:{}, topic_complete:boolean, summary:string}. Never infer sensitive facts. Keep facts concise in Russian."},
+            {"role": "system", "content": EXPERT_SYSTEM_PROMPT + " Return JSON only: {preferences:{pet_type,rhythm,home,wishes}, facts:{}, topic_complete:boolean, summary:string}."},
             {"role": "user", "content": json.dumps({"current_topic": topic[1], "question": topic[2], "previous_portrait": portrait, "answer": text}, ensure_ascii=False)},
-        ])
+        ], db=db, agent="expert")
         if raw:
             match = re.search(r"\{.*\}", raw, re.S)
             if match:
@@ -122,13 +147,13 @@ class AIService:
         topic_complete = any(marker in lower for marker in topic_markers.get(topic_id, ())) and len(text.strip()) >= 8
         return {"preferences": preferences, "facts": {topic_id: text.strip()}, "topic_complete": topic_complete, "summary": ""}
 
-    async def narrate(self, text: str, preference: dict, recommendations: list[dict], portrait: dict | None = None, next_topic: tuple | None = None) -> str:
+    async def narrate(self, text: str, preference: dict, recommendations: list[dict], portrait: dict | None = None, next_topic: tuple | None = None, db: Session | None = None) -> str:
         names = ", ".join(item["name"] for item in recommendations[:3]) or "питомцев из каталога"
         next_question = next_topic[2] if next_topic else "Хочешь посмотреть первые совпадения?"
         raw = await self.complete([
-            {"role": "system", "content": "You are a warm Russian-speaking adoption assistant. A user is completing a thoughtful adoption interview. Acknowledge their answer briefly, then ask exactly one next question. Ask deeper but respectful questions, never pressure the user, and never expose the private portrait or invent animal facts."},
+            {"role": "system", "content": NARRATOR_SYSTEM_PROMPT},
             {"role": "user", "content": json.dumps({"visible_preferences": preference, "private_portrait": portrait or {}, "catalog_names": names, "user_message": text, "next_question": next_question}, ensure_ascii=False)},
-        ], temperature=0.7)
+        ], temperature=0.7, db=db, agent="narrator")
         if raw:
             return raw.strip()
         return f"Спасибо, это важно. {next_question}"

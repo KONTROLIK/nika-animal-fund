@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
     database_url: str = "postgresql+psycopg://petconnect:petconnect@localhost:5432/petconnect"
     jwt_secret: str = "local-development-secret-change-me"
+    settings_encryption_key: str = ""
+    settings_encryption_key: str = ""
     jwt_expire_minutes: int = 10080
     cors_origins: str = "http://localhost:8080,http://localhost:5173"
     ai_base_url: str = "https://anymodel.org/v1"

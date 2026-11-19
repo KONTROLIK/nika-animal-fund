@@ -7,6 +7,7 @@ export type Message = { id: number; role: 'user' | 'assistant'; content: string;
 export type Conversation = { id: number; title: string; created_at: string; updated_at: string }
 export type ChatResult = { conversation: Conversation; user_message: Message; assistant_message: Message; preference: Preference; recommendations: Animal[]; portrait: PortraitStatus }
 export type ManagerDetails = { user: User; preference: Preference | null; portrait: { summary: string | null; facts: Record<string, string>; answers: Array<{ topic: string; answer: string; at: string }>; status: PortraitStatus }; favorites: Animal[]; conversations: Array<{ id: number; title: string; messages: Message[] }> }
+export type AISettings = { enabled: boolean; has_api_key: boolean; updated_at: string | null }
 
 const API = import.meta.env.VITE_API_BASE || ''
 const tokenKey = 'petconnect-token'
@@ -47,4 +48,6 @@ export const api = {
   managerOverview: () => request<{ users: number; animals: number; conversations: number; without_guardians: number }>('/api/manager/overview'),
   managerUsers: () => request<Array<User & { preference: Preference | null; favorite_count: number; conversation_count: number }>>('/api/manager/users'),
   managerUser: (id: number) => request<ManagerDetails>(`/api/manager/users/${id}`),
+  aiSettings: () => request<AISettings>('/api/manager/ai-settings'),
+  updateAISettings: (body: { enabled: boolean; api_key?: string; clear_api_key?: boolean; base_url?: string }) => request<AISettings>('/api/manager/ai-settings', { method: 'PUT', body: JSON.stringify(body) }),
 }
