@@ -289,6 +289,7 @@ async def chat(payload: ChatIn, user: User = Depends(current_user), db: Session 
     await events.publish({"type": "portrait_analysis_started", "user_id": user.id, "topic": topic[0], "at": datetime.now(timezone.utc).isoformat()})
     await events.publish_user(user.id, {"type": "portrait_analysis_started", "stage": "analysis", "topic": topic[1], "at": datetime.now(timezone.utc).isoformat()})
     analyzed = await ai.analyze_portrait(payload.content, topic[0], {"facts": portrait.facts or {}, "covered_topics": list(covered)}, db=db)
+    await events.publish({"type": "expert_response", "user_id": user.id, "conversation_id": conversation.id, "answer": payload.content.strip(), "analysis": analyzed, "at": datetime.now(timezone.utc).isoformat()})
     extracted = {key: value for key, value in analyzed.get("preferences", {}).items() if key in {"pet_type", "rhythm", "home", "wishes"} and value}
     if explicit_type := explicit_pet_type(payload.content):
         extracted["pet_type"] = explicit_type
@@ -329,6 +330,7 @@ async def chat(payload: ChatIn, user: User = Depends(current_user), db: Session 
         await events.publish({"type": "interview_complete", "user_id": user.id, "at": datetime.now(timezone.utc).isoformat()})
         await events.publish_user(user.id, {"type": "interview_complete", "stage": "recommendations", "at": datetime.now(timezone.utc).isoformat()})
         await events.publish_user(user.id, {"type": "recommendation_started", "stage": "recommendations", "at": datetime.now(timezone.utc).isoformat()})
+    await events.publish({"type": "assistant_context", "user_id": user.id, "conversation_id": conversation.id, "preferences": preference_dict(preference), "next_question": next_topic[2] if next_topic else None, "catalog_names": [animal.name for animal in animals_for_reply[:3]], "at": datetime.now(timezone.utc).isoformat()})
     reply = await ai.narrate(payload.content, preference_dict(preference), [{"name": animal.name} for animal in animals_for_reply], facts, next_topic, db=db)
     assistant_message = Message(conversation_id=conversation.id, role="assistant", content=reply)
     conversation.title = "Подбор питомца"
@@ -338,6 +340,7 @@ async def chat(payload: ChatIn, user: User = Depends(current_user), db: Session 
     db.refresh(assistant_message)
     db.refresh(conversation)
     await events.publish({"type": "assistant_message", "user_id": user.id, "conversation_id": conversation.id, "at": datetime.now(timezone.utc).isoformat()})
+    await events.publish({"type": "assistant_response", "user_id": user.id, "conversation_id": conversation.id, "content": reply, "at": datetime.now(timezone.utc).isoformat()})
     await events.publish_user(user.id, {"type": "assistant_message", "stage": "complete", "at": datetime.now(timezone.utc).isoformat()})
     return ChatOut(conversation=conversation, user_message=user_message, assistant_message=assistant_message, preference=preference, recommendations=animals_for_reply, portrait=portrait_status(portrait))
 
