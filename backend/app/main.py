@@ -252,6 +252,7 @@ async def chat(payload: ChatIn, user: User = Depends(current_user), db: Session 
     conversation = db.scalar(select(Conversation).where(Conversation.id == payload.conversation_id, Conversation.user_id == user.id)) if payload.conversation_id else None
     if not conversation:
         conversation = new_conversation(db, user)
+    conversation_answer_count = db.scalar(select(func.count(Message.id)).where(Message.conversation_id == conversation.id, Message.role == "user")) or 0
     user_message = Message(conversation_id=conversation.id, role="user", content=payload.content.strip())
     db.add(user_message)
     preference = db.scalar(select(Preference).where(Preference.user_id == user.id))
@@ -295,14 +296,17 @@ async def chat(payload: ChatIn, user: User = Depends(current_user), db: Session 
     portrait.question_index = min(len(covered), len(PORTRAIT_TOPICS))
     db.commit()
     complete = interview_complete(portrait)
-    animals_for_reply = recommendation_query(db, preference, portrait) if complete else []
+    conversation_complete = complete and conversation_answer_count + 1 >= len(PORTRAIT_TOPICS)
+    if conversation_complete:
+        conversation.interview_complete = True
+    animals_for_reply = recommendation_query(db, preference, portrait) if conversation_complete else []
     next_topic = next((item for item in PORTRAIT_TOPICS if item[0] not in covered), None)
     if not topic_complete:
         next_topic = topic
     await events.publish({"type": "preferences_updated", "user_id": user.id, "fields": list(extracted), "at": datetime.now(timezone.utc).isoformat()})
     await events.publish({"type": "portrait_updated", "user_id": user.id, "covered_topics": len(covered), "total_topics": len(PORTRAIT_TOPICS), "at": datetime.now(timezone.utc).isoformat()})
     await events.publish_user(user.id, {"type": "portrait_updated", "stage": "portrait", "completeness": portrait.completeness, "covered_topics": len(covered), "total_topics": len(PORTRAIT_TOPICS), "at": datetime.now(timezone.utc).isoformat()})
-    if complete:
+    if conversation_complete:
         await events.publish({"type": "interview_complete", "user_id": user.id, "at": datetime.now(timezone.utc).isoformat()})
         await events.publish_user(user.id, {"type": "interview_complete", "stage": "recommendations", "at": datetime.now(timezone.utc).isoformat()})
         await events.publish_user(user.id, {"type": "recommendation_started", "stage": "recommendations", "at": datetime.now(timezone.utc).isoformat()})

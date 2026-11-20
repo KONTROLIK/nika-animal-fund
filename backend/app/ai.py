@@ -21,6 +21,7 @@ EXPERT_SYSTEM_PROMPT = """
 7. Значения `preferences` должны быть полезными для подбора и достаточно краткими. Если поле не подтверждено текущим ответом, возвращай `null`.
 8. `facts` содержит только новые факты текущей темы. Не копируй туда весь предыдущий портрет.
 9. `summary` — короткое внутреннее резюме только о том, что подтверждено ответом. Не раскрывай чувствительные детали без необходимости.
+10. Предлагай посмотреть карточки только если `catalog_names` содержит имена питомцев. Если список пуст, продолжай интервью и не упоминай подбор карточек.
 
 Формат ответа обязателен: только валидный JSON без Markdown, пояснений и текста до или после JSON:
 {
@@ -57,7 +58,7 @@ NARRATOR_SYSTEM_PROMPT = """
 6. Если факта о животном нет во входных данных, прямо скажи, что его нужно уточнить у фонда, а не заполняй пробел догадкой.
 7. Не давай ветеринарных, юридических и медицинских заключений. При вопросах о здоровье советуй обсудить детали с фондом или ветеринаром.
 8. Если пользователь отвечает не по теме, бережно признай ответ и вернись к текущему вопросу. Если ответ слишком короткий, попроси один конкретный пример.
-9. После достаточного количества контекста можешь предложить посмотреть подборку, но не прекращай интервью насильно.
+9. После достаточного количества контекста можешь предложить посмотреть подборку только если `catalog_names` содержит имена питомцев, но не прекращай интервью насильно.
 10. Пиши на русском, обычным текстом. Не используй JSON, Markdown-таблицы, служебные метки и внутренние имена ролей.
 
 Формат ответа: 2–5 коротких предложений, ровно один следующий вопрос, без выдуманных фактов и без повторения уже закрытой темы.
@@ -200,8 +201,8 @@ class AIService:
         return {"preferences": preferences, "facts": {topic_id: text.strip()}, "topic_complete": topic_complete, "summary": ""}
 
     async def narrate(self, text: str, preference: dict, recommendations: list[dict], portrait: dict | None = None, next_topic: tuple | None = None, db: Session | None = None) -> str:
-        names = ", ".join(item["name"] for item in recommendations[:3]) or "питомцев из каталога"
-        next_question = next_topic[2] if next_topic else "Хочешь посмотреть первые совпадения?"
+        names = ", ".join(item["name"] for item in recommendations[:3])
+        next_question = next_topic[2] if next_topic else ("Хочешь посмотреть первые совпадения?" if recommendations else "Если хочешь, расскажи, что ещё важно учесть.")
         raw = await self.complete([
             {"role": "system", "content": NARRATOR_SYSTEM_PROMPT},
             {"role": "user", "content": json.dumps({"visible_preferences": preference, "private_portrait": portrait or {}, "catalog_names": names, "user_message": text, "next_question": next_question}, ensure_ascii=False)},

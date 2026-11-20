@@ -12,13 +12,16 @@ function App() {
   const [route, setRoute] = useState<Route>('home')
   const [user, setUser] = useState<User | null>(null)
   const [conversation, setConversation] = useState<Conversation | null>(null)
+  const [conversations, setConversations] = useState<Conversation[]>([])
   const [toast, setToast] = useState('')
-  useEffect(() => { if (token()) api.me().then(async current => { setUser(current); const conversations = await api.conversations(); setConversation(conversations[0] || null) }).catch(() => setToken(null)) }, [])
+  useEffect(() => { if (token()) api.me().then(async current => { setUser(current); const saved = await api.conversations(); setConversations(saved); setConversation(saved[0] || null) }).catch(() => setToken(null)) }, [])
   const notify = (text: string) => { setToast(text); window.setTimeout(() => setToast(''), 2600) }
   const go = (next: Route) => { setRoute(next); window.scrollTo({ top: 0, behavior: 'smooth' }) }
-  const logout = () => { setToken(null); setUser(null); setConversation(null); go('home'); notify('Вы вышли из аккаунта') }
-  const onAuth = (result: { access_token: string; user: User; conversation: Conversation }) => { setToken(result.access_token); setUser(result.user); setConversation(result.conversation); go('chat'); notify('Добро пожаловать — знакомство начинается') }
-  const content = route === 'auth' ? <Auth onSuccess={onAuth} /> : !user && ['chat', 'profile', 'tinder', 'manager'].includes(route) ? <Auth onSuccess={onAuth} /> : route === 'manager' && user?.role !== 'MANAGER' ? <AccessDenied go={() => go('home')} /> : route === 'home' ? <Home go={go} /> : route === 'discover' ? <Discover notify={notify} go={go} /> : route === 'chat' ? <Chat conversation={conversation} setConversation={setConversation} notify={notify} go={go} /> : route === 'profile' ? <ProfileCabinet user={user!} notify={notify} onUpdated={setUser} /> : route === 'tinder' ? <TinderDeck notify={notify} go={go} /> : route === 'manager' ? <Manager notify={notify} /> : <How />
+  const logout = () => { setToken(null); setUser(null); setConversation(null); setConversations([]); go('home'); notify('Вы вышли из аккаунта') }
+  const updateConversation = (next: Conversation) => { setConversation(next); setConversations(items => [next, ...items.filter(item => item.id !== next.id)]) }
+  const addConversation = (next: Conversation) => { setConversations(items => [next, ...items.filter(item => item.id !== next.id)]); setConversation(next) }
+  const onAuth = async (result: { access_token: string; user: User; conversation: Conversation }) => { setToken(result.access_token); setUser(result.user); const saved = await api.conversations().catch(() => [result.conversation]); setConversations(saved); setConversation(saved[0] || result.conversation); go('chat'); notify('Добро пожаловать — знакомство начинается') }
+  const content = route === 'auth' ? <Auth onSuccess={onAuth} /> : !user && ['chat', 'profile', 'tinder', 'manager'].includes(route) ? <Auth onSuccess={onAuth} /> : route === 'manager' && user?.role !== 'MANAGER' ? <AccessDenied go={() => go('home')} /> : route === 'home' ? <Home go={go} /> : route === 'discover' ? <Discover notify={notify} go={go} /> : route === 'chat' ? <Chat conversation={conversation} conversations={conversations} setConversation={setConversation} onConversationCreated={addConversation} onConversationUpdated={updateConversation} notify={notify} go={go} /> : route === 'profile' ? <ProfileCabinet user={user!} notify={notify} onUpdated={setUser} /> : route === 'tinder' ? <TinderDeck notify={notify} go={go} /> : route === 'manager' ? <Manager notify={notify} /> : <How />
   const visibleNav = nav.filter(([id]) => id !== 'tinder' && (id !== 'manager' || user?.role === 'MANAGER'))
   return <div className="app-shell"><aside className="sidebar"><div className="brand">PET <span>CONNECT</span></div><div className="side-label">умный поиск дома</div><nav>{visibleNav.map(([id, icon, label]) => <React.Fragment key={id}><button className={route === id ? 'active' : ''} onClick={() => go(id)}><i>{icon}</i><span>{label}</span></button>{id === 'chat' && <button className={`nav-subitem ${route === 'tinder' ? 'active' : ''}`} onClick={() => go('tinder')} aria-label="Выбор сердца"><i>♡</i><span>Выбор сердца</span></button>}</React.Fragment>)}</nav><div className="side-footer"><div className="side-label">новый друг рядом</div><p>Знакомься с питомцами и выбирай сердцем.</p></div></aside><main className="workspace"><header className="topbar"><span className="crumb">{route === 'home' ? 'Добрый день' : `PET CONNECT / ${nav.find(([id]) => id === route)?.[2] || 'Вход'}`}</span><div className="top-actions">{user ? <><button className="user-chip" onClick={() => go('profile')}>{user.name.slice(0, 2).toUpperCase()}</button><button className="logout-button" onClick={logout}>Выйти</button></> : <button className="top-login" onClick={() => go('auth')}>Войти ↗</button>}</div></header><div className="content">{content}</div></main>{toast && <div className="toast">{toast}</div>}</div>
 }
@@ -56,7 +59,69 @@ function Discover({ notify, go }: { notify: (s: string) => void; go: (r: Route) 
   return <section><PageTitle eyebrow="02 / актуальный каталог фонда" title="Найти питомца." text="Реальные подопечные, опубликованные на сайте фонда «НИКА»." action={<button className="button" onClick={() => go('tinder')}>Выбирать сердцем ↗</button>} /><div className="catalog-filters"><div className="eyebrow">подробный фильтр</div><div className="filter-grid"><label className="filter-label">Поиск<input value={filters.search} onChange={e => setFilter('search', e.target.value)} placeholder="Имя, порода или описание" /></label><label className="filter-label">Вид<select value={filters.species} onChange={e => setFilter('species', e.target.value)}><option value="all">Все виды</option><option value="Собака">Собаки</option><option value="Кошка">Кошки</option></select></label><label className="filter-label">Пол<select value={filters.gender} onChange={e => setFilter('gender', e.target.value)}><option value="all">Любой</option><option value="мальчик">Мальчики</option><option value="девочка">Девочки</option></select></label><label className="filter-label">Опекун<select value={filters.guardians} onChange={e => setFilter('guardians', e.target.value)}><option value="all">Неважно</option><option value="none">Без опекуна</option><option value="has">Есть опекун</option></select></label><label className="filter-label">С детьми<select value={filters.children} onChange={e => setFilter('children', e.target.value)}><option value="all">Неважно</option><option value="yes">Совместим</option><option value="no">Не совместим</option><option value="unknown">Не указано</option></select></label><label className="filter-label">С животными<select value={filters.pets} onChange={e => setFilter('pets', e.target.value)}><option value="all">Неважно</option><option value="yes">Совместим</option><option value="no">Не совместим</option><option value="unknown">Не указано</option></select></label></div><button className="link-button filter-reset" type="button" onClick={reset}>Сбросить фильтры</button></div><div className="catalog-result"><span className="source-note">Показано {visibleAnimals.length} из {animals.length} карточек</span></div><div className="cards">{visibleAnimals.map(animal => <AnimalCard key={animal.id} animal={animal} />)}</div>{visibleAnimals.length === 0 && <div className="empty"><h3>Ничего не найдено</h3><p>Попробуй изменить параметры фильтра.</p></div>}<p className="source-note">Данные обновляются из публичного каталога фонда «НИКА».</p></section>
 }
 
-function Chat({ conversation, setConversation, notify, go }: { conversation: Conversation | null; setConversation: (c: Conversation | null) => void; notify: (s: string) => void; go: (route: Route) => void }) { const [messages, setMessages] = useState<Message[]>([]); const [input, setInput] = useState(''); const [preference, setPreference] = useState<Preference | null>(null); const [recommendations, setRecommendations] = useState<Animal[]>([]); const [portrait, setPortrait] = useState<PortraitStatus | null>(null); const [stage, setStage] = useState('ready'); const [loading, setLoading] = useState(false); useEffect(() => { if (conversation) { api.messages(conversation.id).then(setMessages).catch(() => {}); api.profile().then(setPreference).catch(() => {}); api.portrait().then(setPortrait).catch(() => {}) } }, [conversation?.id]); useEffect(() => { const current = token(); if (!current) return; const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/portrait?token=${current}`); socket.onmessage = event => { const payload = JSON.parse(event.data); if (payload.type === 'dialog_received') setStage('received'); if (payload.type === 'portrait_analysis_started') setStage('analysis'); if (payload.type === 'portrait_updated') { setStage('portrait'); setPortrait(old => old ? { ...old, completeness: payload.completeness, answer_count: payload.covered_topics } : old) } if (payload.type === 'recommendation_started') setStage('recommendations'); if (payload.type === 'assistant_message') setStage('complete') }; return () => socket.close() }, []); const newChat = async () => { try { setConversation(await api.newConversation()); setRecommendations([]); setStage('ready') } catch (e) { notify((e as Error).message) } }; const send = async (text = input) => { if (!text.trim() || loading) return; setLoading(true); setStage('received'); setInput(''); const optimisticMessage: Message = { id: -Date.now(), role: 'user', content: text, created_at: new Date().toISOString() }; setMessages(old => [...old, optimisticMessage]); try { const result = await api.chat({ conversation_id: conversation?.id, content: text }); setConversation(result.conversation); setMessages(old => [...old, result.assistant_message]); setPreference(result.preference); setRecommendations(result.recommendations); setPortrait(result.portrait); setStage('complete') } catch (e) { setMessages(old => old.filter(message => message.id !== optimisticMessage.id)); notify((e as Error).message) } finally { setLoading(false) } }; return <section><div className="chat-layout"><aside className="chat-list"><div className="eyebrow">диалоги</div><button className="button small" onClick={newChat}>+ Новый диалог</button><div className="chat-list-item active">{conversation?.title || 'Первое знакомство'}<small>сохранено на сервере</small></div></aside><div className="chat-main"><div className="chat-header"><div className="bot"><span>✦</span><div>Ника<small>персональный помощник · онлайн</small></div></div><span className="tag">УМНЫЙ ПОДБОР</span></div><ProcessSummary portrait={portrait} /><div className="messages">{messages.map(message => <div className={`message ${message.role === 'user' ? 'user' : ''}`} key={message.id}><small>{message.role === 'user' ? 'ты' : 'НИКА'}</small><div className="bubble">{message.content}</div></div>)}{loading && <div className="message"><small>НИКА</small><div className="bubble muted">Помощник готовит ответ…</div></div>}{portrait?.completeness === 100 && !loading && <div className="interview-complete"><div className="eyebrow">интервью завершено</div><h3>Подбор готов.</h3><p>Теперь можно открыть персональные карточки питомцев и выбрать сердцем — свайпом вправо или влево.</p><button className="button lime" onClick={() => go('tinder')}>Открыть карточки с питомцами ↗</button></div>}</div><div className="quick"><button onClick={() => send('Я хотел бы приютить собаку')}>Собака 🐕</button><button onClick={() => send('Я хотел бы приютить кошку')}>Кошка 🐈</button><button onClick={() => send('Пока не знаю')}>Пока не знаю</button></div><form className="chat-form" onSubmit={e => { e.preventDefault(); send() }}><input value={input} onChange={e => setInput(e.target.value)} placeholder="Напиши о себе..." /><button className="send">↑</button></form></div><aside className="chat-context"><div className="eyebrow">контекст подбора</div><div className="context-card"><span className="tag">ПОРТРЕТ ВЛАДЕЛЬЦА</span><strong>{portrait?.completeness || 0}% контекста собрано</strong><p>Подробные ответы используются внутри подбора и не показываются целиком в анкете.</p></div><div className="context-row"><span>Ответов</span><b>{portrait?.answer_count || 0}</b></div><div className="context-row"><span>Ритм жизни</span><b>{preference?.rhythm || 'изучаем'}</b></div><div className="context-row"><span>Дом</span><b>{preference?.home || 'изучаем'}</b></div></aside></div></section> }
+function Chat({ conversation, conversations, setConversation, onConversationCreated, onConversationUpdated, notify, go }: { conversation: Conversation | null; conversations: Conversation[]; setConversation: (c: Conversation | null) => void; onConversationCreated: (c: Conversation) => void; onConversationUpdated: (c: Conversation) => void; notify: (s: string) => void; go: (route: Route) => void }) {
+  const [messages, setMessages] = useState<Message[]>([])
+  const [input, setInput] = useState('')
+  const [preference, setPreference] = useState<Preference | null>(null)
+  const [portrait, setPortrait] = useState<PortraitStatus | null>(null)
+  const [stage, setStage] = useState('ready')
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!conversation) { setMessages([]); return }
+    api.messages(conversation.id).then(setMessages).catch(() => {})
+    api.profile().then(setPreference).catch(() => {})
+    api.portrait().then(setPortrait).catch(() => {})
+  }, [conversation?.id])
+
+  useEffect(() => {
+    const current = token()
+    if (!current) return
+    const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/portrait?token=${current}`)
+    socket.onmessage = event => {
+      const payload = JSON.parse(event.data)
+      if (payload.type === 'dialog_received') setStage('received')
+      if (payload.type === 'portrait_analysis_started') setStage('analysis')
+      if (payload.type === 'portrait_updated') { setStage('portrait'); setPortrait(old => old ? { ...old, completeness: payload.completeness, answer_count: payload.covered_topics } : old) }
+      if (payload.type === 'assistant_message') setStage('complete')
+    }
+    return () => socket.close()
+  }, [])
+
+  const newChat = async () => {
+    try {
+      const next = await api.newConversation()
+      onConversationCreated(next)
+      setMessages([])
+      setPreference(null)
+      setPortrait(null)
+      setStage('ready')
+    } catch (e) { notify((e as Error).message) }
+  }
+
+  const send = async (text = input) => {
+    if (!text.trim() || loading) return
+    setLoading(true)
+    setStage('received')
+    setInput('')
+    const optimisticMessage: Message = { id: -Date.now(), role: 'user', content: text, created_at: new Date().toISOString() }
+    setMessages(old => [...old, optimisticMessage])
+    try {
+      const result = await api.chat({ conversation_id: conversation?.id, content: text })
+      if (conversation) onConversationUpdated(result.conversation)
+      else onConversationCreated(result.conversation)
+      setMessages(old => [...old, result.assistant_message])
+      setPreference(result.preference)
+      setPortrait(result.portrait)
+      setStage('complete')
+    } catch (e) {
+      setMessages(old => old.filter(message => message.id !== optimisticMessage.id))
+      notify((e as Error).message)
+    } finally { setLoading(false) }
+  }
+
+  return <section><div className="chat-layout"><aside className="chat-list"><div className="eyebrow">диалоги</div><button className="button small" onClick={newChat}>+ Новый диалог</button><div className="chat-history">{conversations.map(item => <button key={item.id} className={`chat-list-item ${conversation?.id === item.id ? 'active' : ''}`} onClick={() => setConversation(item)}>{item.title || 'Первое знакомство'}<small>{item.interview_complete ? 'интервью завершено' : 'сохранено на сервере'}</small></button>)}</div></aside><div className="chat-main"><div className="chat-header"><div className="bot"><span>✦</span><div>Ника<small>персональный помощник · онлайн</small></div></div><span className="tag">УМНЫЙ ПОДБОР</span></div><ProcessSummary portrait={messages.some(message => message.role === 'user') ? portrait : null} /><div className="messages">{messages.map(message => <div className={`message ${message.role === 'user' ? 'user' : ''}`} key={message.id}><small>{message.role === 'user' ? 'ты' : 'НИКА'}</small><div className="bubble">{message.content}</div></div>)}{loading && <div className="message"><small>НИКА</small><div className="bubble muted">Помощник готовит ответ…</div></div>}{conversation?.interview_complete && !loading && <div className="interview-complete"><div className="eyebrow">интервью завершено</div><h3>Подбор готов.</h3><p>Теперь можно открыть персональные карточки питомцев и выбрать сердцем — свайпом вправо или влево.</p><button className="button lime" onClick={() => go('tinder')}>Открыть карточки с питомцами ↗</button></div>}</div><div className="quick"><button onClick={() => send('Я хотел бы приютить собаку')}>Собака 🐕</button><button onClick={() => send('Я хотел бы приютить кошку')}>Кошка 🐈</button><button onClick={() => send('Пока не знаю')}>Пока не знаю</button></div><form className="chat-form" onSubmit={e => { e.preventDefault(); send() }}><input value={input} onChange={e => setInput(e.target.value)} placeholder="Напиши о себе..." /><button className="send">↑</button></form></div><aside className="chat-context"><div className="eyebrow">контекст подбора</div><div className="context-card"><span className="tag">ПОРТРЕТ ВЛАДЕЛЬЦА</span><strong>{portrait?.completeness || 0}% контекста собрано</strong><p>Подробные ответы используются внутри подбора и не показываются целиком в анкете.</p></div><div className="context-row"><span>Ответов</span><b>{portrait?.answer_count || 0}</b></div><div className="context-row"><span>Ритм жизни</span><b>{preference?.rhythm || 'изучаем'}</b></div><div className="context-row"><span>Дом</span><b>{preference?.home || 'изучаем'}</b></div></aside></div></section>
+}
 
 function ProcessSummary({ portrait }: { portrait: PortraitStatus | null }) {
   const completeness = portrait?.completeness || 0

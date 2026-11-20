@@ -117,6 +117,7 @@ class ConversationOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     title: str
+    interview_complete: bool = False
     created_at: datetime
     updated_at: datetime
 
