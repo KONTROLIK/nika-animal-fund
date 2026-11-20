@@ -24,6 +24,22 @@ def preference_dict(preference):
     return {"pet_type": preference.pet_type, "rhythm": preference.rhythm, "home": preference.home, "wishes": preference.wishes}
 
 
+TINDER_CARD_LIMIT = 6
+
+
+def explicit_pet_type(text: str) -> str | None:
+    lower = text.lower()
+    if not any(marker in lower for marker in ("хочу", "ищу", "приют", "выбрал", "нужн")):
+        return None
+    has_dog = "собак" in lower or "пёс" in lower or "пес" in lower
+    has_cat = "кош" in lower
+    if has_dog and not has_cat:
+        return "Собака"
+    if has_cat and not has_dog:
+        return "Кошка"
+    return None
+
+
 def portrait_for(db: Session, user_id: int) -> OwnerPortrait:
     portrait = db.scalar(select(OwnerPortrait).where(OwnerPortrait.user_id == user_id))
     if not portrait:
@@ -81,6 +97,8 @@ def new_conversation(db: Session, user: User):
 def recommendation_query(db: Session, preference: Preference | None = None, portrait: OwnerPortrait | None = None, limit: int = 6):
     animals = list(db.scalars(select(Animal).where(Animal.is_available.is_(True))))
     visible = preference_dict(preference) if preference else {}
+    if visible.get("pet_type") in {"Собака", "Кошка"}:
+        animals = [animal for animal in animals if animal.species == visible["pet_type"]]
     private_text = " ".join(str(value) for value in (portrait.facts or {}).values()) if portrait else ""
     private_text = f"{private_text} {(portrait.summary or '') if portrait else ''}".lower()
 
@@ -252,6 +270,10 @@ async def chat(payload: ChatIn, user: User = Depends(current_user), db: Session 
     await events.publish_user(user.id, {"type": "portrait_analysis_started", "stage": "analysis", "topic": topic[1], "at": datetime.now(timezone.utc).isoformat()})
     analyzed = await ai.analyze_portrait(payload.content, topic[0], {"facts": portrait.facts or {}, "covered_topics": list(covered)}, db=db)
     extracted = {key: value for key, value in analyzed.get("preferences", {}).items() if key in {"pet_type", "rhythm", "home", "wishes"} and value}
+    if explicit_type := explicit_pet_type(payload.content):
+        extracted["pet_type"] = explicit_type
+    elif preference.pet_type:
+        extracted.pop("pet_type", None)
     for field, value in extracted.items():
         if value and value != getattr(preference, field):
             db.add(PreferenceChange(user_id=user.id, field=field, old_value=getattr(preference, field), new_value=value))
@@ -326,7 +348,7 @@ def tinder_next(user: User = Depends(current_user), db: Session = Depends(get_db
         raise HTTPException(409, "Сначала завершите интервью — после этого откроется подбор карточек")
     swiped = select(Swipe.animal_id).where(Swipe.user_id == user.id)
     ranked = recommendation_query(db, db.scalar(select(Preference).where(Preference.user_id == user.id)), portrait, limit=100)
-    return [animal for animal in ranked if animal.id not in set(db.scalars(swiped))][:20]
+    return [animal for animal in ranked if animal.id not in set(db.scalars(swiped))][:TINDER_CARD_LIMIT]
 
 
 @app.post("/api/tinder/{animal_id}")
