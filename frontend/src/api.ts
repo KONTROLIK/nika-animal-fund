@@ -1,5 +1,5 @@
 export type User = { id: number; name: string; email: string; phone: string | null; city: string | null; postal_code: string | null; address: string | null; contact_method: string | null; role: string; created_at: string }
-export type Animal = { id: number; source_id: string; name: string; age: string; gender: string; species: string; breed: string | null; shelter: string; guardians: string; description: string | null; character: string | null; suitable_for: string | null; health: string | null; image_url: string; source_url: string; gallery: string[]; is_available: boolean }
+export type Animal = { id: number; source_id: string; name: string; age: string; gender: string; species: string; breed: string | null; shelter: string; guardians: string; description: string | null; character: string | null; suitable_for: string | null; health: string | null; children_compatible: boolean | null; pets_compatible: boolean | null; image_url: string; source_url: string; gallery: string[]; is_available: boolean }
 export type Preference = { pet_type: string | null; rhythm: string | null; home: string | null; wishes: string | null; updated_at: string }
 export type PortraitTopic = { id: string; label: string; covered: boolean }
 export type PortraitStatus = { completeness: number; answer_count: number; next_topic: string | null; topics: PortraitTopic[] }
