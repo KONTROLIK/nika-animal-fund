@@ -23,3 +23,18 @@
 .process-summary{margin:14px 8% 0;padding:16px 18px;border-block:1px solid var(--line);background:#fbfcf8}.process-summary-head{display:flex;align-items:end;justify-content:space-between;gap:16px}.process-summary-head .eyebrow{margin-bottom:5px}.process-summary-head strong{display:block;font-size:16px}.process-summary-head>span{color:var(--muted);font:10px 'DM Mono',monospace;text-transform:uppercase;text-align:right}.process-summary-track{height:8px;margin-top:14px;background:#e5ece3;border-radius:99px;overflow:hidden}.process-summary-track i{display:block;height:100%;background:var(--lime);border-radius:inherit;transition:width .3s ease}@media(max-width:760px){.process-summary{margin-inline:18px}.process-summary-head{display:block}.process-summary-head>span{display:block;margin-top:8px;text-align:left}}
 .catalog-filters{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:20px}.filter-grid{display:grid;grid-template-columns:2fr repeat(5,1fr);gap:10px;margin-top:12px}.filter-label{display:grid;gap:6px;color:var(--muted);font:10px 'DM Mono',monospace;text-transform:uppercase}.filter-label input,.filter-label select{width:100%;border:1px solid var(--line);border-radius:8px;background:#fcfcfa;color:var(--ink);padding:10px;font:12px Manrope,sans-serif;text-transform:none}.filter-reset{margin-top:14px;padding:0}.catalog-result{margin:-6px 0 12px}.catalog-result .source-note{margin:0}@media(max-width:1050px){.filter-grid{grid-template-columns:repeat(3,1fr)}}@media(max-width:760px){.filter-grid{grid-template-columns:1fr 1fr}.filter-label:first-child{grid-column:1/-1}}
 .sidebar nav{display:grid;gap:8px}.sidebar nav button{padding-block:12px}
+
+/* Mobile navigation: hamburger opens the sidebar as a slide-in panel. */
+.menu-toggle,.menu-backdrop{display:none}.topbar-lead{display:flex;align-items:center;gap:12px;min-width:0}
+@media(max-width:760px){
+body.menu-open{overflow:hidden}
+.menu-toggle{display:inline-flex;flex:0 0 auto;flex-direction:column;justify-content:center;align-items:center;gap:4px;width:38px;height:38px;padding:0;border:1px solid var(--line);border-radius:10px;background:#fff}
+.menu-toggle span{display:block;width:16px;height:2px;border-radius:99px;background:var(--ink)}
+.menu-backdrop{display:block;position:fixed;inset:0;z-index:35;background:#183d3166}
+.sidebar{position:fixed;inset:0 auto 0 0;z-index:40;width:min(82vw,300px);height:100%;padding:22px 16px;display:flex;flex-direction:column;overflow-y:auto;transform:translateX(-100%);visibility:hidden;transition:transform .25s ease,visibility 0s linear .25s;box-shadow:20px 0 60px #183d3133}
+.sidebar.open{transform:none;visibility:visible;transition:transform .25s ease}
+.sidebar .side-label{display:block}
+.sidebar nav{display:grid;gap:6px;margin-top:18px;overflow:visible}
+.sidebar nav button{flex:none;width:100%;padding:12px 13px;font-size:13px}
+.sidebar nav button span{display:inline}
+}
