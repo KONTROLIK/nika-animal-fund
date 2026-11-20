@@ -12,6 +12,7 @@ class UserOut(BaseModel):
     postal_code: str | None = None
     address: str | None = None
     contact_method: str | None = None
+    avatar_url: str | None = None
     role: str
     created_at: datetime
 
@@ -35,6 +36,7 @@ class AccountUpdateIn(BaseModel):
     postal_code: str | None = Field(default=None, max_length=20)
     address: str | None = Field(default=None, max_length=300)
     contact_method: str | None = Field(default=None, pattern="^(email|phone|telegram)$")
+    avatar_url: str | None = Field(default=None, max_length=2_000_000)
 
 
 class PreferenceOut(BaseModel):

@@ -170,6 +170,8 @@ def update_account(payload: AccountUpdateIn, user: User = Depends(current_user),
     existing = db.scalar(select(User).where(User.email == email, User.id != user.id))
     if existing:
         raise HTTPException(409, "Пользователь с таким email уже зарегистрирован")
+    if payload.avatar_url and not payload.avatar_url.startswith(("data:image/png;base64,", "data:image/jpeg;base64,", "data:image/webp;base64,", "data:image/gif;base64,")):
+        raise HTTPException(400, "Аватар должен быть изображением PNG, JPEG, WEBP или GIF")
     user.name = payload.name.strip()
     user.email = email
     user.phone = payload.phone or None
@@ -177,9 +179,26 @@ def update_account(payload: AccountUpdateIn, user: User = Depends(current_user),
     user.postal_code = payload.postal_code or None
     user.address = payload.address or None
     user.contact_method = payload.contact_method or None
+    user.avatar_url = payload.avatar_url or None
     db.commit()
     db.refresh(user)
     return user
+
+
+@app.get("/api/manager/ai-flow")
+def manager_ai_flow(_: User = Depends(manager_only), db: Session = Depends(get_db)):
+    record = db.scalar(select(AISettingsRecord).where(AISettingsRecord.id == 1))
+    conversation = db.scalar(select(Conversation).join(User, User.id == Conversation.user_id).where(User.role == "USER").order_by(Conversation.updated_at.desc()))
+    if not conversation:
+        return {"enabled": bool(record and record.enabled), "conversation_id": None, "user_name": None, "user_answer": None, "expert": {"covered_topics": [], "facts": {}, "summary": None, "preferences": {}}, "assistant_reply": None, "recommendation_ready": False}
+    messages = list(db.scalars(select(Message).where(Message.conversation_id == conversation.id).order_by(Message.created_at.desc()).limit(20)))
+    user_message = next((message for message in messages if message.role == "user"), None)
+    assistant_message = next((message for message in messages if message.role == "assistant"), None)
+    portrait = db.scalar(select(OwnerPortrait).where(OwnerPortrait.user_id == conversation.user_id))
+    preference = db.scalar(select(Preference).where(Preference.user_id == conversation.user_id))
+    covered = set(portrait.covered_topics or []) if portrait else set()
+    labels = [topic[1] for topic in PORTRAIT_TOPICS if topic[0] in covered]
+    return {"enabled": bool(record and record.enabled), "conversation_id": conversation.id, "user_name": conversation.user.name, "user_answer": user_message.content if user_message else None, "expert": {"covered_topics": labels[-5:], "facts": portrait.facts if portrait else {}, "summary": portrait.summary if portrait else None, "preferences": preference_dict(preference)}, "assistant_reply": assistant_message.content if assistant_message else None, "recommendation_ready": conversation.interview_complete}
 
 
 @app.get("/api/animals", response_model=list[AnimalOut])

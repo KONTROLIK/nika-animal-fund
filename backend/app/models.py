@@ -14,6 +14,7 @@ class User(Base):
     postal_code: Mapped[str | None] = mapped_column(String(20))
     address: Mapped[str | None] = mapped_column(String(300))
     contact_method: Mapped[str | None] = mapped_column(String(40))
+    avatar_url: Mapped[str | None] = mapped_column(Text)
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(20), default="USER", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
