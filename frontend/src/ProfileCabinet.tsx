@@ -40,17 +40,93 @@ export function ProfileCabinet({ user, notify, onUpdated }: Props) {
     try { const next = await api.updateProfile(form); setProfile(next); notify('Анкета сохранена — подбор обновлён') } catch (error) { notify((error as Error).message) }
   }
 
+  const completeness = portrait?.completeness || 0
+
   return <section>
-    <div className="page-title"><div><div className="eyebrow">03 / личный кабинет</div><h1>Профиль.</h1><p className="lead">Управляй контактными данными и отдельно настрой подбор питомца.</p></div></div>
-    <div className="account-hero"><label className="avatar-upload">{account.avatar_url ? <img src={account.avatar_url} alt="Аватар профиля" /> : <span>{user.name.slice(0, 2).toUpperCase()}</span>}<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={uploadAvatar} /><small>Изменить</small></label><div><div className="eyebrow">личный кабинет</div><h2>{user.name}</h2><p>{user.email}</p></div><span className="account-role">{user.role === 'MANAGER' ? 'Менеджер' : 'Пользователь'}</span></div>
-    <div className="profile-tabs"><button className={tab === 'account' ? 'active' : ''} onClick={() => setTab('account')}>Личные данные</button><button className={tab === 'preferences' ? 'active' : ''} onClick={() => setTab('preferences')}>Моя анкета</button><button className={tab === 'favorites' ? 'active' : ''} onClick={() => setTab('favorites')}>Избранное {favorites.length > 0 && `(${favorites.length})`}</button></div>
-    {tab === 'account' ? <form className="panel account-form" onSubmit={saveAccount}><div className="panel-head"><div><div className="eyebrow">аккаунт</div><h3>Контактная информация</h3></div><span className="source-note">сохраняется на сервере</span></div><div className="form-grid"><label>Имя<input value={account.name} onChange={e => setAccount({ ...account, name: e.target.value })} required /></label><label>Email<input type="email" value={account.email} onChange={e => setAccount({ ...account, email: e.target.value })} required /></label><label>Телефон<input value={account.phone} onChange={e => setAccount({ ...account, phone: e.target.value })} placeholder="+7 (___) ___-__-__" /></label><label>Город<input value={account.city} onChange={e => setAccount({ ...account, city: e.target.value })} placeholder="Москва" /></label><label>Почтовый индекс<input value={account.postal_code} onChange={e => setAccount({ ...account, postal_code: e.target.value })} placeholder="123456" /></label><label>Способ связи<select value={account.contact_method} onChange={e => setAccount({ ...account, contact_method: e.target.value })}><option value="email">Email</option><option value="phone">Телефон</option><option value="telegram">Telegram</option></select></label><label className="full">Адрес<textarea value={account.address} onChange={e => setAccount({ ...account, address: e.target.value })} placeholder="Улица, дом, квартира" /></label></div><div className="align-right"><button className="button" type="submit">Сохранить личные данные ↗</button></div></form> : tab === 'preferences' ? <div className="profile-grid"><div className="profile-card"><div className="profile-mark">PC</div><h2>Контекст подбора</h2><p>Основные предпочтения видны тебе. Подробный портрет собирается отдельно в диалоге.</p><div className="pills"><span>{profile?.pet_type || 'вид питомца'}</span><span>{profile?.rhythm || 'ритм жизни'}</span><span>{profile?.home || 'тип дома'}</span></div><div className="portrait-progress"><b>{portrait?.completeness || 0}%</b><span>подробного контекста собрано</span><div><i style={{ width: `${portrait?.completeness || 0}%` }} /></div></div></div><form className="panel form-grid" onSubmit={savePreferences}><div className="panel-head full"><h3>Что важно при выборе</h3><span className="eyebrow">сохранение на сервере</span></div><label>Вид питомца<select value={form.pet_type} onChange={e => setForm({ ...form, pet_type: e.target.value })}><option value="">Выбери вариант</option><option>Собака</option><option>Кошка</option><option>Не определился</option></select></label><label>Ритм жизни<select value={form.rhythm} onChange={e => setForm({ ...form, rhythm: e.target.value })}><option value="">Пока изучаем</option><option>Спокойный</option><option>Активный</option><option>Смешанный</option></select></label><label>Мой дом<select value={form.home} onChange={e => setForm({ ...form, home: e.target.value })}><option value="">Не указано</option><option>Квартира</option><option>Дом</option></select></label><label className="full">Пожелания<textarea value={form.wishes} onChange={e => setForm({ ...form, wishes: e.target.value })} placeholder="Расскажи, каким должен быть ваш общий день..." /></label><div className="full align-right"><button className="button" type="submit">Сохранить анкету ↗</button></div></form></div> : <div className="panel favorites-panel"><div className="panel-head"><div><div className="eyebrow">сохранённые питомцы</div><h3>Те, кто понравился.</h3></div><span className="source-note">{favorites.length} карточек</span></div>{favorites.length ? <div className="cards favorites-cards">{favorites.map(animal => <FavoriteCard key={animal.id} animal={animal} onRemove={() => setFavorites(items => items.filter(item => item.id !== animal.id))} />)}</div> : <div className="empty"><h3>Пока пусто</h3><p>Лайкни питомца в подборе — он появится здесь.</p></div>}</div>}
+    <div className="pc-hello" style={{ gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s5)' }}>
+        <label className="pc-avatar">
+          {account.avatar_url ? <img src={account.avatar_url} alt="Аватар профиля" /> : <span>{user.name.slice(0, 2).toUpperCase()}</span>}
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={uploadAvatar} />
+          <small>Изменить</small>
+        </label>
+        <div>
+          <p className="lbl">Личный кабинет</p>
+          <h1 className="h1" style={{ fontSize: 'var(--fs-3xl)' }}>{user.name}</h1>
+          <p className="sub" style={{ marginTop: 'var(--s1)' }}>{user.email}</p>
+        </div>
+      </div>
+      <span className="chip">{user.role === 'MANAGER' ? 'Менеджер' : 'Пользователь'}</span>
+    </div>
+
+    <div className="pc-tabs" role="tablist">
+      <button role="tab" aria-selected={tab === 'account'} onClick={() => setTab('account')}>Личные данные</button>
+      <button role="tab" aria-selected={tab === 'preferences'} onClick={() => setTab('preferences')}>Моя анкета</button>
+      <button role="tab" aria-selected={tab === 'favorites'} onClick={() => setTab('favorites')}>Избранное{favorites.length ? ` · ${favorites.length}` : ''}</button>
+    </div>
+
+    {tab === 'account' && <form className="card" onSubmit={saveAccount}>
+      <div className="sechead"><h2 className="h2">Контактная информация</h2><span className="st st--xs">сохраняется на сервере</span></div>
+      <div className="pc-form2">
+        <label>Имя<input className="inp" value={account.name} onChange={e => setAccount({ ...account, name: e.target.value })} required /></label>
+        <label>Email<input className="inp" type="email" value={account.email} onChange={e => setAccount({ ...account, email: e.target.value })} required /></label>
+        <label>Телефон<input className="inp" value={account.phone} onChange={e => setAccount({ ...account, phone: e.target.value })} placeholder="+7 (___) ___-__-__" /></label>
+        <label>Город<input className="inp" value={account.city} onChange={e => setAccount({ ...account, city: e.target.value })} placeholder="Москва" /></label>
+        <label>Почтовый индекс<input className="inp" value={account.postal_code} onChange={e => setAccount({ ...account, postal_code: e.target.value })} placeholder="123456" /></label>
+        <label>Способ связи<select value={account.contact_method} onChange={e => setAccount({ ...account, contact_method: e.target.value })}><option value="email">Email</option><option value="phone">Телефон</option><option value="telegram">Telegram</option></select></label>
+        <label className="full">Адрес<textarea value={account.address} onChange={e => setAccount({ ...account, address: e.target.value })} placeholder="Улица, дом, квартира" /></label>
+      </div>
+      <div className="pc-hrow"><button className="btn btn--fill btn--sm" type="submit">Сохранить личные данные</button></div>
+    </form>}
+
+    {tab === 'preferences' && <div className="pc-deck">
+      <form className="card" onSubmit={savePreferences}>
+        <div className="sechead"><h2 className="h2">Что важно при выборе</h2><span className="st st--xs">сохранение на сервере</span></div>
+        <div className="pc-form2">
+          <label>Вид питомца<select value={form.pet_type} onChange={e => setForm({ ...form, pet_type: e.target.value })}><option value="">Выберите вариант</option><option>Собака</option><option>Кошка</option><option>Не определился</option></select></label>
+          <label>Ритм жизни<select value={form.rhythm} onChange={e => setForm({ ...form, rhythm: e.target.value })}><option value="">Пока изучаем</option><option>Спокойный</option><option>Активный</option><option>Смешанный</option></select></label>
+          <label>Мой дом<select value={form.home} onChange={e => setForm({ ...form, home: e.target.value })}><option value="">Не указано</option><option>Квартира</option><option>Дом</option></select></label>
+          <label className="full">Пожелания<textarea value={form.wishes} onChange={e => setForm({ ...form, wishes: e.target.value })} placeholder="Расскажите, каким должен быть ваш общий день…" /></label>
+        </div>
+        <div className="pc-hrow"><button className="btn btn--fill btn--sm" type="submit">Сохранить анкету</button></div>
+      </form>
+      <aside className="pc-side">
+        <div className="card">
+          <p className="lbl">Портрет подбора</p>
+          <h2 className="h3">{completeness}%</h2>
+          <div className="bar"><i style={{ width: `${completeness}%` }} /></div>
+          <p className="hint">Ответов: {portrait?.answer_count || 0}. Подробный портрет собирается в диалоге и целиком не показывается.</p>
+          <dl className="kv">
+            <div><dt>Вид</dt><dd>{profile?.pet_type || 'не задано'}</dd></div>
+            <div><dt>Ритм</dt><dd>{profile?.rhythm || 'не задано'}</dd></div>
+            <div><dt>Дом</dt><dd>{profile?.home || 'не задано'}</dd></div>
+          </dl>
+        </div>
+      </aside>
+    </div>}
+
+    {tab === 'favorites' && <div className="card">
+      <div className="sechead"><h2 className="h2">Те, кто понравился</h2><span className="st st--xs">{favorites.length} карточек</span></div>
+      {favorites.length
+        ? <ul className="pc-grid pc-grid--3">{favorites.map(animal => <FavoriteTile key={animal.id} animal={animal} onRemove={() => setFavorites(items => items.filter(item => item.id !== animal.id))} />)}</ul>
+        : <div className="pc-empty"><h3>Пока пусто</h3><p>Поставьте лайк в «Выборе сердцем» — питомец появится здесь.</p></div>}
+    </div>}
   </section>
 }
 
-function FavoriteCard({ animal, onRemove }: { animal: Animal; onRemove: () => void }) {
+function FavoriteTile({ animal, onRemove }: { animal: Animal; onRemove: () => void }) {
   const remove = async () => {
     try { await api.favorite(animal.id, true); onRemove() } catch { /* keep the card when the server rejects the removal */ }
   }
-  return <article className="animal-card favorite-card"><img src={animal.image_url} alt={`${animal.name}, ${animal.gender}`} /><button className="heart saved" onClick={remove} aria-label="Убрать из избранного">♥</button><div className="animal-info"><div className="animal-title"><div><h3>{animal.name}</h3><span>{animal.age} · {animal.gender} · {animal.species}</span></div></div><p>{animal.description?.split('\n')[0] || 'Информация о питомце опубликована фондом.'}</p><div className="card-footer"><span className="tag">{animal.shelter}</span><a href={animal.source_url} target="_blank" rel="noreferrer">Открыть карточку фонда ↗</a></div></div></article>
+  return <li><article className="pc-tile">
+    <figure>
+      <img src={animal.image_url} alt={`${animal.name}, ${animal.species}`} loading="lazy" />
+      <button className="pc-fav is-on" onClick={remove} aria-label="Убрать из избранного">♥</button>
+    </figure>
+    <h3>{animal.name}</h3>
+    <p>{animal.age} · {animal.gender} · {animal.species}</p>
+    <div className="pc-tile__acts">
+      <a href={animal.source_url} target="_blank" rel="noreferrer">Карточка фонда</a>
+    </div>
+  </article></li>
 }

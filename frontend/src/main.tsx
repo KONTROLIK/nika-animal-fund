@@ -1,13 +1,26 @@
 ﻿import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { api, type Animal, type Conversation, type Message, type PortraitStatus, type Preference, type User, setToken, token } from './api'
+import './ds.css'
+import './lk.css'
 import './styles.css'
+import logo from './logo-nika.png'
 import { ProfileCabinet } from './ProfileCabinet'
 import { TinderDeck } from './TinderDeck'
 
-type Route = 'home' | 'discover' | 'chat' | 'profile' | 'tinder' | 'manager' | 'how' | 'auth'
-const nav: Array<[Route, string, string]> = [['home', '⌂', 'Обзор'], ['discover', '✦', 'Найти питомца'], ['chat', '◌', 'Помощник'], ['tinder', '♡', 'Выбор сердцем'], ['profile', '○', 'Профиль'], ['manager', '▦', 'Менеджер'], ['how', '⌁', 'Как работает']]
-const greetings = ['Рад тебя видеть', 'Хорошего дня', 'С возвращением', 'Приятно продолжить', 'Добро пожаловать', 'На связи', 'Начнём знакомство', 'Пусть день будет добрым', 'Снова вместе', 'Готовы искать друга']
+type Route = 'home' | 'discover' | 'chat' | 'tinder' | 'profile' | 'manager' | 'how' | 'auth'
+
+const icon = (d: string) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d={d} stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+
+const nav: Array<[Route, React.ReactNode, string]> = [
+  ['home', icon('M3 8.4 10 3l7 5.4V16a1.4 1.4 0 0 1-1.4 1.4h-3.2v-4.6H7.6v4.6H4.4A1.4 1.4 0 0 1 3 16z'), 'Обзор'],
+  ['discover', icon('M10 10.6c-2.6 0-4.6 2.3-4.6 4.4 0 1.3 1 2 2.2 2 .9 0 1.5-.4 2.4-.4s1.5.4 2.4.4c1.2 0 2.2-.7 2.2-2 0-2.1-2-4.4-4.6-4.4zM4.6 8.6a1.5 1.9 0 1 0 0 .1M7.9 4.9a1.5 1.9 0 1 0 0 .1M12.1 4.9a1.5 1.9 0 1 0 0 .1M15.4 8.6a1.5 1.9 0 1 0 0 .1'), 'Подопечные'],
+  ['chat', icon('M3.4 5.6a2.2 2.2 0 0 1 2.2-2.2h8.8a2.2 2.2 0 0 1 2.2 2.2v6a2.2 2.2 0 0 1-2.2 2.2H9.2l-3.6 2.9v-2.9a2.2 2.2 0 0 1-2.2-2.2z'), 'Помощник'],
+  ['tinder', icon('M10 16.6s-6.4-3.8-6.4-8.4A3.5 3.5 0 0 1 10 6.1a3.5 3.5 0 0 1 6.4 2.1c0 4.6-6.4 8.4-6.4 8.4z'), 'Выбор сердцем'],
+  ['profile', icon('M10 7.4a3.2 3.2 0 1 0 0 .1M3.6 17.2c.9-3.3 3.4-5 6.4-5s5.5 1.7 6.4 5'), 'Моя анкета'],
+  ['manager', icon('M3 4h14v4H3zM3 12h6v5H3zM12 12h5v5h-5z'), 'Менеджер'],
+  ['how', icon('M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM10 9v4M10 6.6v.1'), 'Как работает'],
+]
 
 function App() {
   const [route, setRoute] = useState<Route>('home')
@@ -16,69 +29,249 @@ function App() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [toast, setToast] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
-  const [greeting] = useState(() => {
-    const options = greetings.filter(text => text !== sessionStorage.getItem('petconnect-greeting'))
-    const next = options[Math.floor(Math.random() * options.length)]
-    sessionStorage.setItem('petconnect-greeting', next)
-    return next
-  })
-  useEffect(() => { if (token()) api.me().then(async current => { setUser(current); const saved = await api.conversations(); setConversations(saved); setConversation(saved[0] || null) }).catch(() => setToken(null)) }, [])
-  const notify = (text: string) => { setToast(text); window.setTimeout(() => setToast(''), 2600) }
+
+  useEffect(() => {
+    if (token()) api.me().then(async current => {
+      setUser(current)
+      const saved = await api.conversations()
+      setConversations(saved)
+      setConversation(saved[0] || null)
+      if (current.role === 'MANAGER') setRoute('manager')
+    }).catch(() => setToken(null))
+  }, [])
+
+  const notify = (text: string) => { setToast(text); window.setTimeout(() => setToast(''), 3000) }
+
   useEffect(() => {
     document.body.classList.toggle('menu-open', menuOpen)
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setMenuOpen(false) }
     window.addEventListener('keydown', onKey)
     return () => { document.body.classList.remove('menu-open'); window.removeEventListener('keydown', onKey) }
   }, [menuOpen])
+
   const go = (next: Route) => { setRoute(next); setMenuOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }
   const logout = () => { setToken(null); setUser(null); setConversation(null); setConversations([]); go('home'); notify('Вы вышли из аккаунта') }
   const updateConversation = (next: Conversation) => { setConversation(next); setConversations(items => [next, ...items.filter(item => item.id !== next.id)]) }
   const addConversation = (next: Conversation) => { setConversations(items => [next, ...items.filter(item => item.id !== next.id)]); setConversation(next) }
-  const onAuth = async (result: { access_token: string; user: User; conversation: Conversation }) => { setToken(result.access_token); setUser(result.user); const saved = await api.conversations().catch(() => [result.conversation]); setConversations(saved); setConversation(saved[0] || result.conversation); go('chat'); notify('Добро пожаловать — знакомство начинается') }
-  const content = route === 'auth' ? <Auth onSuccess={onAuth} /> : !user && ['chat', 'profile', 'tinder', 'manager'].includes(route) ? <Auth onSuccess={onAuth} /> : route === 'manager' && user?.role !== 'MANAGER' ? <AccessDenied go={() => go('home')} /> : route === 'home' ? <Home go={go} /> : route === 'discover' ? <Discover notify={notify} go={go} /> : route === 'chat' ? <Chat conversation={conversation} conversations={conversations} setConversation={setConversation} onConversationCreated={addConversation} onConversationUpdated={updateConversation} notify={notify} go={go} /> : route === 'profile' ? <ProfileCabinet user={user!} notify={notify} onUpdated={setUser} /> : route === 'tinder' ? <TinderDeck notify={notify} go={go} /> : route === 'manager' ? <Manager notify={notify} /> : <How />
-  const visibleNav = nav.filter(([id]) => id !== 'tinder' && (id !== 'manager' || user?.role === 'MANAGER'))
-  return <div className="app-shell">{menuOpen && <button type="button" className="menu-backdrop" aria-label="Закрыть меню" onClick={() => setMenuOpen(false)} />}<aside className={'sidebar' + (menuOpen ? ' open' : '')} id="mobile-menu"><div className="brand">PET <span>CONNECT</span></div><div className="side-label">умный поиск дома</div><nav>{visibleNav.map(([id, icon, label]) => <React.Fragment key={id}><button className={route === id ? 'active' : ''} onClick={() => go(id)}><i>{icon}</i><span>{label}</span></button>{id === 'chat' && <button className={`nav-subitem ${route === 'tinder' ? 'active' : ''}`} onClick={() => go('tinder')} aria-label="Выбор сердца"><i>♡</i><span>Выбор сердца</span></button>}</React.Fragment>)}</nav><div className="side-footer"><div className="side-label">новый друг рядом</div><p>Знакомься с питомцами и выбирай сердцем.</p></div></aside><main className="workspace"><header className="topbar"><div className="topbar-lead"><button type="button" className="menu-toggle" aria-label="Открыть меню" aria-controls="mobile-menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}><span /><span /><span /></button><span className="crumb">{greeting}{user ? `, ${user.name}` : ''}</span></div><div className="top-actions">{user ? <><button className="user-chip" onClick={() => go('profile')}>{user.avatar_url ? <img src={user.avatar_url} alt="Аватар" /> : user.name.slice(0, 2).toUpperCase()}</button><button className="logout-button" onClick={logout}>Выйти</button></> : <button className="top-login" onClick={() => go('auth')}>Войти ↗</button>}</div></header><div className="content">{content}</div></main>{toast && <div className="toast">{toast}</div>}</div>
+  const onAuth = async (result: { access_token: string; user: User; conversation: Conversation }) => {
+    setToken(result.access_token)
+    setUser(result.user)
+    const saved = await api.conversations().catch(() => [result.conversation])
+    setConversations(saved)
+    setConversation(saved[0] || result.conversation)
+    go(result.user.role === 'MANAGER' ? 'manager' : 'chat')
+    notify('Добро пожаловать — знакомство начинается')
+  }
+
+  const visibleNav = nav.filter(([id]) => id !== 'manager' || user?.role === 'MANAGER')
+  const locked = !user && ['chat', 'profile', 'tinder', 'manager'].includes(route)
+
+  const content = locked || route === 'auth'
+    ? <Auth onSuccess={onAuth} />
+    : route === 'home' ? <Home go={go} user={user} notify={notify} />
+    : route === 'discover' ? <Discover notify={notify} />
+    : route === 'chat' ? <Chat conversation={conversation} conversations={conversations} setConversation={setConversation} onConversationCreated={addConversation} onConversationUpdated={updateConversation} notify={notify} go={go} />
+    : route === 'profile' ? <ProfileCabinet user={user!} notify={notify} onUpdated={setUser} />
+    : route === 'tinder' ? <TinderDeck notify={notify} go={go} />
+    : route === 'manager' ? <Manager notify={notify} />
+    : <How go={go} />
+
+  return <>
+    <header className="hdr"><div className="hdr__in">
+      <a className="brand pc-brand" href="#" onClick={e => { e.preventDefault(); go('home') }} aria-label="PET CONNECT, на главную">
+        <img src={logo} alt="" /><span>PET CONNECT</span>
+      </a>
+      <div className="pc-top">
+        <button className="hbtn menu-btn" type="button" aria-expanded={menuOpen} aria-controls="aside" aria-label="Разделы" onClick={() => setMenuOpen(!menuOpen)}>
+          <span>{nav.find(([id]) => id === route)?.[2] || 'Обзор'}</span>
+          <svg width="16" height="11" viewBox="0 0 16 11" fill="none" aria-hidden="true"><path d="M0 1h16M0 5.5h16M0 10h16" stroke="currentColor" strokeWidth="1.4" /></svg>
+        </button>
+        {user
+          ? <>
+            <button className="pc-user" onClick={() => go('profile')} aria-label="Профиль">
+              {user.avatar_url ? <img src={user.avatar_url} alt="" /> : <i aria-hidden="true">{user.name.slice(0, 2).toUpperCase()}</i>}
+              <span>{user.name.split(' ')[0]}</span>
+            </button>
+            <button className="hbtn" type="button" onClick={logout}>Выйти</button>
+          </>
+          : <>
+            <button className="hbtn" type="button" onClick={() => go('auth')}>Войти</button>
+            <button className="btn btn--fill btn--sm" type="button" onClick={() => go('chat')}>Начать подбор</button>
+          </>}
+      </div>
+    </div></header>
+
+    <div className="app">
+      <aside className="aside" id="aside" aria-label="Разделы">
+        <nav className="snav" aria-label="Помощник и подбор">
+          {visibleNav.filter(([id]) => ['home', 'discover', 'chat', 'tinder', 'how'].includes(id)).map(([id, ico, label]) =>
+            <a key={id} href={`#${id}`} aria-current={route === id ? 'page' : undefined} onClick={e => { e.preventDefault(); go(id) }}>{ico}{label}</a>)}
+        </nav>
+        <nav className="snav" aria-label="Аккаунт">
+          {visibleNav.filter(([id]) => ['profile', 'manager'].includes(id)).map(([id, ico, label]) =>
+            <a key={id} href={`#${id}`} aria-current={route === id ? 'page' : undefined} onClick={e => { e.preventDefault(); go(id) }}>{ico}{label}</a>)}
+        </nav>
+      </aside>
+
+      <main className="main" id="main">
+        <div id="view">{content}</div>
+        <footer className="mfoot">
+          <span>© 2026 PET CONNECT · подбор питомцев фонда «НИКА»</span>
+          <a href="https://fond-nika.ru/" target="_blank" rel="noreferrer">fond-nika.ru</a>
+          <a href="mailto:info@fond-nika.ru">info@fond-nika.ru</a>
+        </footer>
+      </main>
+    </div>
+
+    {toast && <div className="toast" role="status" aria-live="polite">{toast}</div>}
+  </>
 }
 
-function AccessDenied({ go }: { go: () => void }) { return <div className="empty"><h2>Раздел недоступен</h2><p>Рабочее пространство команды доступно только сотрудникам с ролью менеджера.</p><button className="button" onClick={go}>Вернуться на главную</button></div> }
-
-function Home({ go }: { go: (route: Route) => void }) {
-  const [animals, setAnimals] = useState<Animal[]>([])
-  useEffect(() => { api.animals().then(setAnimals).catch(() => setAnimals([])) }, [])
-  return <section><div className="hero"><div><div className="eyebrow">01 / знакомство начинается здесь</div><h1>Новый друг<br />начинается с <em>разговора.</em></h1><p className="lead">PET CONNECT помогает познакомиться с подопечными фонда «НИКА». Без сложных анкет — просто расскажи о себе.</p><div className="hero-actions"><button className="button lime" onClick={() => go('chat')}>Начать разговор ↗</button><button className="button outline" onClick={() => go('discover')}>Смотреть питомцев</button></div></div><div className="hero-visual"><img src="https://nika-design.pages.dev/sayt-2/assets/sayt/bim.jpg" alt="Бим, 7 лет" /><div className="sticker">питомцы<br />ждут своего<br />человека ✦</div><div className="photo-caption"><b>Бим · 7 лет</b><span>Подопечный фонда «НИКА»</span></div></div></div><div className="stats"><div><b>416,2 млн ₽</b><span>направлено на помощь в 2025 году</span></div><div><b>1136</b><span>животных стерилизовано</span></div><div><b>{animals.length || '—'}</b><span>актуальных карточек в каталоге</span></div></div><div className="section-head"><div><div className="eyebrow">02 / актуальные подопечные</div><h2>Им нужна помощь сейчас.</h2></div><button className="link-button" onClick={() => go('discover')}>Все подопечные →</button></div><div className="cards">{animals.slice(0, 3).map(animal => <AnimalCard key={animal.id} animal={animal} />)}</div><div className="callout"><h2>Познакомься с теми, кто ждёт своего человека.</h2><button className="button lime" onClick={() => go('tinder')}>Выбирать сердцем ↗</button></div></section>
+function PageHead({ title, sub, action }: { title: string; sub?: string; action?: React.ReactNode }) {
+  return <div className="pc-hello" style={{ gridTemplateColumns: 'minmax(0,1fr) auto' }}>
+    <div><h1>{title}</h1>{sub && <p className="pc-sub">{sub}</p>}</div>
+    {action}
+  </div>
 }
 
-function AnimalCard({ animal, onFavorite }: { animal: Animal; onFavorite?: () => void }) { const [saved, setSaved] = useState(false); const toggle = async () => { try { await api.favorite(animal.id, saved); setSaved(!saved); onFavorite?.() } catch {} }; return <article className="animal-card"><img src={animal.image_url} alt={`${animal.name}, ${animal.gender}`} /><button className={`heart ${saved ? 'saved' : ''}`} onClick={toggle} aria-label="Добавить в избранное">{saved ? '♥' : '♡'}</button><div className="animal-info"><div className="animal-title"><div><h3>{animal.name}</h3><span>{animal.age} · {animal.gender} · {animal.species}</span></div></div><p>{animal.description?.split('\n')[0] || 'Информация о питомце опубликована фондом.'}</p><div className="card-footer"><span className="tag">{animal.shelter}</span><a href={animal.source_url} target="_blank" rel="noreferrer">Подробнее ↗</a></div><div className="animal-meta">{animal.guardians} · {animal.is_available ? 'ищет дом' : 'статус уточняется'}</div></div></article> }
-
-function Discover({ notify, go }: { notify: (s: string) => void; go: (r: Route) => void }) {
+function Home({ go, user, notify }: { go: (route: Route) => void; user: User | null; notify: (text: string) => void }) {
   const [animals, setAnimals] = useState<Animal[]>([])
-  const [filters, setFilters] = useState({ search: '', species: 'all', gender: 'all', guardians: 'all', children: 'all', pets: 'all' })
+  const [portrait, setPortrait] = useState<PortraitStatus | null>(null)
 
-  useEffect(() => { api.animals().then(setAnimals).catch(e => notify(e.message)) }, [])
+  useEffect(() => {
+    api.animals().then(setAnimals).catch(() => setAnimals([]))
+    if (user) api.portrait().then(setPortrait).catch(() => {})
+  }, [user?.id])
+
+  const completeness = portrait?.completeness || 0
+
+  return <section>
+    <div className="ov">
+      <div className="pc-hello">
+        <div className="hello">
+          <p className="lbl">Личный кабинет</p>
+          <h1>{user ? `Здравствуйте, ${user.name.split(' ')[0]}` : 'Новый друг начинается с разговора'}</h1>
+          <p className="pc-sub">{user
+            ? 'Продолжите знакомство с помощником — он подберёт подопечных фонда под ваш ритм жизни.'
+            : 'PET CONNECT помогает познакомиться с подопечными фонда «НИКА» без сложных анкет: просто расскажите о себе.'}</p>
+          <p className="pc-sub" style={{ color: 'var(--ink-3)', fontSize: 'var(--fs-xs)' }}>{user ? 'Прогресс и ответы сохраняются в вашем аккаунте.' : 'Начать можно с разговора или с каталога.'}</p>
+          <div className="pc-sum">
+            {user ? 'Собрано контекста' : 'Подопечных ждут дома'}
+            <b>{user ? `${completeness}%` : animals.length || '—'}</b>
+          </div>
+          <div className="pc-stats">
+            <div><b>{animals.length || '—'}</b><span>карточек в каталоге</span></div>
+            <div><b>{portrait?.answer_count || 0}</b><span>ответов в интервью</span></div>
+            <div><b>{user ? '15' : '—'}</b><span>тем подбора</span></div>
+            <div><b>{user ? '6' : '—'}</b><span>карточек за раз</span></div>
+          </div>
+        </div>
+        <figure className="pc-hero-photo">
+          <figure>
+            <img src="https://nika-design.pages.dev/sayt-2/assets/sayt/bim.jpg" alt="Бим, подопечный фонда «НИКА»" />
+            <span className="pc-card__mark">ждёт своего человека</span>
+          </figure>
+          <figcaption><b>Бим · 7 лет</b><span>Центр «Мокрый нос»</span></figcaption>
+        </figure>
+      </div>
+
+      <div className="pc-qa">
+        <button onClick={() => go('chat')}><i>{icon('M3.4 5.6a2.2 2.2 0 0 1 2.2-2.2h8.8a2.2 2.2 0 0 1 2.2 2.2v6a2.2 2.2 0 0 1-2.2 2.2H9.2l-3.6 2.9v-2.9h0a2.2 2.2 0 0 1-2.2-2.2z')}</i><span><b>Продолжить разговор</b><small>Помощник задаст следующий вопрос</small></span>{arrow()}</button>
+        <button onClick={() => go('tinder')}><i>{icon('M10 16.6s-6.4-3.8-6.4-8.4A3.5 3.5 0 0 1 10 6.1a3.5 3.5 0 0 1 6.4 2.1c0 4.6-6.4 8.4-6.4 8.4z')}</i><span><b>Выбор сердцем</b><small>Карточки по вашему интервью</small></span>{arrow()}</button>
+        <button onClick={() => go('discover')}><i>{icon('M10 10.6c-2.6 0-4.6 2.3-4.6 4.4 0 1.3 1 2 2.2 2 .9 0 1.5-.4 2.4-.4s1.5.4 2.4.4c1.2 0 2.2-.7 2.2-2 0-2.1-2-4.4-4.6-4.4z')}</i><span><b>Весь каталог</b><small>{animals.length || '—'} актуальных карточек фонда</small></span>{arrow()}</button>
+        <button onClick={() => go('profile')}><i>{icon('M10 7.4a3.2 3.2 0 1 0 0 .1M3.6 17.2c.9-3.3 3.4-5 6.4-5s5.5 1.7 6.4 5')}</i><span><b>Моя анкета</b><small>Предпочтения и избранное</small></span>{arrow()}</button>
+      </div>
+
+      {user && completeness > 0 && completeness < 100 && <div className="now">
+        <p className="st st--lg">Интервью пройдено на {completeness}%</p>
+        <p className="t">Осталось тем: {15 - (portrait?.topics.filter(topic => topic.covered).length || 0)}. После интервью откроются персональные карточки.</p>
+        <div className="bar"><i style={{ width: `${completeness}%` }} /></div>
+        <div className="acts"><button className="btn btn--fill btn--sm" onClick={() => go('chat')}>Продолжить разговор</button></div>
+      </div>}
+
+      <div>
+        <div className="sechead">
+          <h2 className="h2">Им нужна помощь сейчас</h2>
+          <button className="more" onClick={() => go('discover')}>Все подопечные {arrow()}</button>
+        </div>
+        <ul className="pc-grid">
+          {animals.slice(0, 4).map(animal => <AnimalTile key={animal.id} animal={animal} notify={notify} />)}
+        </ul>
+      </div>
+
+      <div className="pc-callout">
+        <div><h2>Познакомьтесь с теми, кто ждёт своего человека</h2><p>Расскажите о себе — и помощник сузит список до тех, кто действительно подойдёт.</p></div>
+        <button className="btn btn--light" onClick={() => go('chat')}>{user ? 'Продолжить разговор' : 'Начать разговор'}</button>
+      </div>
+    </div>
+  </section>
+}
+
+function arrow() { return <svg width="16" height="12" viewBox="0 0 16 12" fill="none" aria-hidden="true"><path d="M1 6h13M9.5 1.5 14 6l-4.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg> }
+
+function AnimalTile({ animal, notify }: { animal: Animal; notify?: (text: string) => void }) {
+  const [saved, setSaved] = useState(false)
+  const toggle = async () => {
+    try { await api.favorite(animal.id, saved); setSaved(!saved); notify?.(saved ? 'Убрано из избранного' : `${animal.name} в избранном`) } catch { /* keep the previous state when the server rejects the change */ }
+  }
+  return <li><article className="pc-tile">
+    <figure>
+      <img src={animal.image_url} alt={`${animal.name}, ${animal.species}`} loading="lazy" />
+      <button className={`pc-fav ${saved ? 'is-on' : ''}`} onClick={toggle} aria-label={saved ? 'Убрать из избранного' : 'В избранное'}>{saved ? '♥' : '♡'}</button>
+    </figure>
+    <h3>{animal.name}</h3>
+    <p>{animal.age} · {animal.gender}</p>
+    <p className="pc-tile-meta">{animal.guardians}</p>
+    <div className="pc-tile__acts">
+      <a href={animal.source_url} target="_blank" rel="noreferrer">Карточка фонда</a>
+      {animal.shelter && <span className="st st--xs">{animal.shelter}</span>}
+    </div>
+  </article></li>
+}
+
+function Discover({ notify }: { notify: (text: string) => void }) {
+  const [animals, setAnimals] = useState<Animal[]>([])
+  const [filters, setFilters] = useState({ search: '', species: 'all', gender: 'all', guardians: 'all' })
+
+  useEffect(() => { api.animals().then(setAnimals).catch(error => notify(error.message)) }, [])
 
   const setFilter = (key: keyof typeof filters, value: string) => setFilters(current => ({ ...current, [key]: value }))
-  const matchesCompatibility = (value: string, actual: boolean | null) => value === 'all' || (value === 'yes' && actual === true) || (value === 'no' && actual === false) || (value === 'unknown' && actual === null)
   const search = filters.search.trim().toLowerCase()
-  const visibleAnimals = animals.filter(animal => {
+  const visible = animals.filter(animal => {
     const text = [animal.name, animal.breed, animal.description].filter(Boolean).join(' ').toLowerCase()
     return (!search || text.includes(search)) &&
       (filters.species === 'all' || animal.species === filters.species) &&
       (filters.gender === 'all' || animal.gender === filters.gender) &&
-      (filters.guardians === 'all' || (filters.guardians === 'none' ? animal.guardians === 'Пока без опекунов' : animal.guardians !== 'Пока без опекунов')) &&
-      matchesCompatibility(filters.children, animal.children_compatible) &&
-      matchesCompatibility(filters.pets, animal.pets_compatible)
+      (filters.guardians === 'all' || (filters.guardians === 'none' ? animal.guardians === 'Пока без опекунов' : animal.guardians !== 'Пока без опекунов'))
   })
-  const reset = () => setFilters({ search: '', species: 'all', gender: 'all', guardians: 'all', children: 'all', pets: 'all' })
 
-  return <section><PageTitle eyebrow="02 / актуальный каталог фонда" title="Найти питомца." text="Реальные подопечные, опубликованные на сайте фонда «НИКА»." action={<button className="button" onClick={() => go('tinder')}>Выбирать сердцем ↗</button>} /><div className="catalog-filters"><div className="eyebrow">подробный фильтр</div><div className="filter-grid"><label className="filter-label">Поиск<input value={filters.search} onChange={e => setFilter('search', e.target.value)} placeholder="Имя, порода или описание" /></label><label className="filter-label">Вид<select value={filters.species} onChange={e => setFilter('species', e.target.value)}><option value="all">Все виды</option><option value="Собака">Собаки</option><option value="Кошка">Кошки</option></select></label><label className="filter-label">Пол<select value={filters.gender} onChange={e => setFilter('gender', e.target.value)}><option value="all">Любой</option><option value="мальчик">Мальчики</option><option value="девочка">Девочки</option></select></label><label className="filter-label">Опекун<select value={filters.guardians} onChange={e => setFilter('guardians', e.target.value)}><option value="all">Неважно</option><option value="none">Без опекуна</option><option value="has">Есть опекун</option></select></label><label className="filter-label">С детьми<select value={filters.children} onChange={e => setFilter('children', e.target.value)}><option value="all">Неважно</option><option value="yes">Совместим</option><option value="no">Не совместим</option><option value="unknown">Не указано</option></select></label><label className="filter-label">С животными<select value={filters.pets} onChange={e => setFilter('pets', e.target.value)}><option value="all">Неважно</option><option value="yes">Совместим</option><option value="no">Не совместим</option><option value="unknown">Не указано</option></select></label></div><button className="link-button filter-reset" type="button" onClick={reset}>Сбросить фильтры</button></div><div className="catalog-result"><span className="source-note">Показано {visibleAnimals.length} из {animals.length} карточек</span></div><div className="cards">{visibleAnimals.map(animal => <AnimalCard key={animal.id} animal={animal} />)}</div>{visibleAnimals.length === 0 && <div className="empty"><h3>Ничего не найдено</h3><p>Попробуй изменить параметры фильтра.</p></div>}<p className="source-note">Данные обновляются из публичного каталога фонда «НИКА».</p></section>
+  return <section>
+    <PageHead title="Подопечные фонда" sub="Реальные карточки из публичного каталога фонда «НИКА». Данные обновляются при запуске сервиса." />
+    <div className="pc-filters">
+      <div className="pc-field"><label htmlFor="pc-search">Поиск</label><input id="pc-search" className="inp" value={filters.search} onChange={e => setFilter('search', e.target.value)} placeholder="Имя, порода или описание" /></div>
+      <div className="pc-field"><label htmlFor="pc-species">Вид</label><select id="pc-species" className="inp" value={filters.species} onChange={e => setFilter('species', e.target.value)}><option value="all">Все виды</option><option value="Собака">Собаки</option><option value="Кошка">Кошки</option></select></div>
+      <div className="pc-field"><label htmlFor="pc-gender">Пол</label><select id="pc-gender" className="inp" value={filters.gender} onChange={e => setFilter('gender', e.target.value)}><option value="all">Любой</option><option value="мальчик">Мальчики</option><option value="девочка">Девочки</option></select></div>
+      <div className="pc-field"><label htmlFor="pc-guardians">Опекун</label><select id="pc-guardians" className="inp" value={filters.guardians} onChange={e => setFilter('guardians', e.target.value)}><option value="all">Неважно</option><option value="none">Без опекуна</option><option value="has">Есть опекун</option></select></div>
+      <div className="pc-filters__foot">
+        <span className="st st--xs">Показано {visible.length} из {animals.length}</span>
+        <button className="lnk" type="button" onClick={() => setFilters({ search: '', species: 'all', gender: 'all', guardians: 'all' })}>Сбросить фильтры</button>
+      </div>
+    </div>
+    {visible.length
+      ? <ul className="pc-grid">{visible.map(animal => <AnimalTile key={animal.id} animal={animal} notify={notify} />)}</ul>
+      : <div className="pc-empty"><h3>Ничего не найдено</h3><p>Попробуйте изменить параметры фильтра.</p></div>}
+  </section>
 }
 
-function Chat({ conversation, conversations, setConversation, onConversationCreated, onConversationUpdated, notify, go }: { conversation: Conversation | null; conversations: Conversation[]; setConversation: (c: Conversation | null) => void; onConversationCreated: (c: Conversation) => void; onConversationUpdated: (c: Conversation) => void; notify: (s: string) => void; go: (route: Route) => void }) {
+function Chat({ conversation, conversations, setConversation, onConversationCreated, onConversationUpdated, notify, go }: {
+  conversation: Conversation | null; conversations: Conversation[]; setConversation: (c: Conversation | null) => void
+  onConversationCreated: (c: Conversation) => void; onConversationUpdated: (c: Conversation) => void
+  notify: (text: string) => void; go: (route: Route) => void
+}) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [preference, setPreference] = useState<Preference | null>(null)
   const [portrait, setPortrait] = useState<PortraitStatus | null>(null)
-  const [stage, setStage] = useState('ready')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -94,10 +287,8 @@ function Chat({ conversation, conversations, setConversation, onConversationCrea
     const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/portrait?token=${current}`)
     socket.onmessage = event => {
       const payload = JSON.parse(event.data)
-      if (payload.type === 'dialog_received') setStage('received')
-      if (payload.type === 'portrait_analysis_started') setStage('analysis')
-      if (payload.type === 'portrait_updated') { setStage('portrait'); setPortrait(old => old ? { ...old, completeness: payload.completeness, answer_count: payload.covered_topics } : old) }
-      if (payload.type === 'assistant_message') setStage('complete')
+      if (payload.type === 'portrait_updated') setPortrait(old => old ? { ...old, completeness: payload.completeness } : old)
+      if (payload.type === 'assistant_message') api.portrait().then(setPortrait).catch(() => {})
     }
     return () => socket.close()
   }, [])
@@ -105,21 +296,15 @@ function Chat({ conversation, conversations, setConversation, onConversationCrea
   const newChat = async () => {
     try {
       const next = await api.newConversation()
-      onConversationCreated(next)
-      setMessages([])
-      setPreference(null)
-      setPortrait(null)
-      setStage('ready')
-    } catch (e) { notify((e as Error).message) }
+      onConversationCreated(next); setMessages([]); setPreference(null); setPortrait(null)
+    } catch (error) { notify((error as Error).message) }
   }
 
   const send = async (text = input) => {
     if (!text.trim() || loading) return
-    setLoading(true)
-    setStage('received')
-    setInput('')
-    const optimisticMessage: Message = { id: -Date.now(), role: 'user', content: text, created_at: new Date().toISOString() }
-    setMessages(old => [...old, optimisticMessage])
+    setLoading(true); setInput('')
+    const optimistic: Message = { id: -Date.now(), role: 'user', content: text, created_at: new Date().toISOString() }
+    setMessages(old => [...old, optimistic])
     try {
       const result = await api.chat({ conversation_id: conversation?.id, content: text })
       if (conversation) onConversationUpdated(result.conversation)
@@ -127,67 +312,206 @@ function Chat({ conversation, conversations, setConversation, onConversationCrea
       setMessages(old => [...old, result.assistant_message])
       setPreference(result.preference)
       setPortrait(result.portrait)
-      setStage('complete')
-    } catch (e) {
-      setMessages(old => old.filter(message => message.id !== optimisticMessage.id))
-      notify((e as Error).message)
+    } catch (error) {
+      setMessages(old => old.filter(message => message.id !== optimistic.id))
+      notify((error as Error).message)
     } finally { setLoading(false) }
   }
 
-  return <section><div className="chat-layout"><aside className="chat-list"><div className="eyebrow">диалоги</div><button className="button small" onClick={newChat}>+ Новый диалог</button><div className="chat-history">{conversations.map(item => <button key={item.id} className={`chat-list-item ${conversation?.id === item.id ? 'active' : ''}`} onClick={() => setConversation(item)}>{item.title || 'Первое знакомство'}<small>{item.interview_complete ? 'интервью завершено' : 'сохранено на сервере'}</small></button>)}</div></aside><div className="chat-main"><div className="chat-header"><div className="bot"><span>✦</span><div>Ника<small>персональный помощник · онлайн</small></div></div></div><ProcessSummary portrait={messages.some(message => message.role === 'user') ? portrait : null} /><div className="messages">{messages.map(message => <div className={`message ${message.role === 'user' ? 'user' : ''}`} key={message.id}><small>{message.role === 'user' ? 'ты' : 'НИКА'}</small><div className="bubble">{message.content}</div></div>)}{loading && <div className="message"><small>НИКА</small><div className="bubble muted">Помощник готовит ответ…</div></div>}{conversation?.interview_complete && !loading && <div className="interview-complete"><div className="eyebrow">интервью завершено</div><h3>Подбор готов.</h3><p>Теперь можно открыть персональные карточки питомцев и выбрать сердцем — свайпом вправо или влево.</p><button className="button lime" onClick={() => go('tinder')}>Открыть карточки с питомцами ↗</button></div>}</div><div className="quick"><button onClick={() => send('Я хотел бы приютить собаку')}>Собака 🐕</button><button onClick={() => send('Я хотел бы приютить кошку')}>Кошка 🐈</button><button onClick={() => send('Пока не знаю')}>Пока не знаю</button></div><form className="chat-form" onSubmit={e => { e.preventDefault(); send() }}><input value={input} onChange={e => setInput(e.target.value)} placeholder="Напиши о себе..." /><button className="send">↑</button></form></div><aside className="chat-context"><div className="eyebrow">контекст подбора</div><div className="context-card"><span className="tag">ПОРТРЕТ ВЛАДЕЛЬЦА</span><strong>{portrait?.completeness || 0}% контекста собрано</strong><p>Подробные ответы используются внутри подбора и не показываются целиком в анкете.</p></div><div className="context-row"><span>Ответов</span><b>{portrait?.answer_count || 0}</b></div><div className="context-row"><span>Ритм жизни</span><b>{preference?.rhythm || 'изучаем'}</b></div><div className="context-row"><span>Дом</span><b>{preference?.home || 'изучаем'}</b></div></aside></div></section>
-}
-
-function ProcessSummary({ portrait }: { portrait: PortraitStatus | null }) {
   const completeness = portrait?.completeness || 0
   const remaining = portrait?.topics.filter(topic => !topic.covered).length ?? 15
-  return <div className="process-summary"><div className="process-summary-head"><div><div className="eyebrow">прогресс интервью</div><strong>Анализ завершён на {completeness}%</strong></div><span>{remaining === 0 ? 'вопросов не осталось' : `Осталось вопросов: ${remaining}`}</span></div><div className="process-summary-track"><i style={{ width: `${completeness}%` }} /></div></div>
+
+  return <section>
+    <PageHead title="Помощник Ника" sub="Обычный разговор вместо анкеты: помощник задаёт по одному вопросу и собирает контекст для подбора." action={<button className="btn btn--line btn--sm" onClick={newChat}>Новый диалог</button>} />
+    <div className="pc-chat" style={{ marginTop: 'var(--block)' }}>
+      <div className="pc-chat__main">
+        <div className="pc-chat__head">
+          <div className="pc-bot"><i>✦</i><div><b>Ника</b><small>персональный помощник · онлайн</small></div></div>
+          <span className="chip">{conversation?.interview_complete ? 'интервью завершено' : `тем: ${15 - remaining}/15`}</span>
+        </div>
+        <div className="pc-progress">
+          <div className="pc-progress__h"><span>Прогресс интервью</span><span>{completeness}%</span></div>
+          <div className="pc-progress__t"><i style={{ width: `${completeness}%` }} /></div>
+        </div>
+        <div className="pc-messages">
+          {messages.map(message => <div className={`pc-msg ${message.role === 'user' ? 'pc-msg--user' : ''}`} key={message.id}>
+            <small>{message.role === 'user' ? 'вы' : 'НИКА'}</small>
+            <div className="pc-bubble">{message.content}</div>
+          </div>)}
+          {loading && <div className="pc-msg"><small>НИКА</small><div className="pc-bubble pc-bubble--dim">Помощник готовит ответ…</div></div>}
+          {conversation?.interview_complete && !loading && <div className="pc-done">
+            <p className="lbl">Интервью завершено</p>
+            <h3>Подбор готов</h3>
+            <p>Откройте персональные карточки и выберите сердцем — свайпом вправо или влево.</p>
+            <button className="btn btn--fill btn--sm" onClick={() => go('tinder')}>Открыть карточки</button>
+          </div>}
+        </div>
+        {!messages.some(message => message.role === 'user') && <div className="pc-quick">
+          <button onClick={() => send('Я хотел бы приютить собаку')}>Собаку</button>
+          <button onClick={() => send('Я хотел бы приютить кошку')}>Кошку</button>
+          <button onClick={() => send('Пока не знаю')}>Пока не знаю</button>
+        </div>}
+        <form className="pc-form" onSubmit={e => { e.preventDefault(); send() }}>
+          <input className="inp" value={input} onChange={e => setInput(e.target.value)} placeholder="Напишите о себе…" aria-label="Сообщение" />
+          <button className="btn btn--fill" type="submit" aria-label="Отправить" disabled={loading}>↑</button>
+        </form>
+      </div>
+
+      <aside className="pc-side">
+        <div className="card">
+          <p className="lbl">Контекст подбора</p>
+          <h2 className="h3">{completeness}% собрано</h2>
+          <p className="hint">Подробные ответы используются внутри подбора и не показываются целиком.</p>
+          <dl className="kv">
+            <div><dt>Ответов</dt><dd>{portrait?.answer_count || 0}</dd></div>
+            <div><dt>Ритм жизни</dt><dd>{preference?.rhythm || 'изучаем'}</dd></div>
+            <div><dt>Дом</dt><dd>{preference?.home || 'изучаем'}</dd></div>
+            <div><dt>Вид</dt><dd>{preference?.pet_type || 'изучаем'}</dd></div>
+          </dl>
+        </div>
+        <div className="card">
+          <p className="lbl">Диалоги</p>
+          <div className="pc-hist">
+            {conversations.map(item => <button key={item.id} className={conversation?.id === item.id ? 'is-on' : ''} onClick={() => setConversation(item)}>
+              {item.title || 'Первое знакомство'}
+              <small>{item.interview_complete ? 'интервью завершено' : 'сохранено'}</small>
+            </button>)}
+          </div>
+          <button className="btn btn--line btn--sm" style={{ width: '100%', marginTop: 'var(--s3)' }} onClick={go.bind(null, 'tinder')}>Выбор сердцем</button>
+        </div>
+      </aside>
+    </div>
+  </section>
 }
-function Profile({ notify }: { notify: (s: string) => void }) { const [profile, setProfile] = useState<Preference | null>(null); const [history, setHistory] = useState<Array<{ field: string; old_value: string | null; new_value: string | null; created_at: string }>>([]); const [form, setForm] = useState({ pet_type: '', rhythm: '', home: '', wishes: '' }); useEffect(() => { Promise.all([api.profile(), api.history()]).then(([p, changes]) => { setProfile(p); setHistory(changes); setForm({ pet_type: p.pet_type || '', rhythm: p.rhythm || '', home: p.home || '', wishes: p.wishes || '' }) }).catch(e => notify(e.message)) }, []); const save = async (e: React.FormEvent) => { e.preventDefault(); try { const next = await api.updateProfile(form); setProfile(next); setHistory(await api.history()); notify('Анкета сохранена — подбор обновлён') } catch (e) { notify((e as Error).message) } }; return <section><PageTitle eyebrow="03 / твой контекст" title="Моя анкета." text="Помощник сохраняет только то, чем ты хочешь поделиться. Всё можно изменить." /><div className="profile-grid"><div className="profile-card"><div className="profile-mark">PC</div><h2>Твой профиль</h2><p>Настройки подбора синхронизированы с аккаунтом.</p><div className="pills"><span>{profile?.pet_type || 'вид питомца'}</span><span>{profile?.rhythm || 'ритм жизни'}</span><span>{profile?.home || 'тип дома'}</span></div></div><form className="panel form-grid" onSubmit={save}><div className="panel-head full"><h3>Что важно при выборе</h3><span className="eyebrow">сохранение на сервере</span></div><label>Вид питомца<select value={form.pet_type} onChange={e => setForm({ ...form, pet_type: e.target.value })}><option value="">Выбери вариант</option><option>Собака</option><option>Кошка</option><option>Не определился</option></select></label><label>Ритм жизни<select value={form.rhythm} onChange={e => setForm({ ...form, rhythm: e.target.value })}><option value="">Пока изучаем</option><option>Спокойный</option><option>Активный</option><option>Смешанный</option></select></label><label>Мой дом<select value={form.home} onChange={e => setForm({ ...form, home: e.target.value })}><option value="">Не указано</option><option>Квартира</option><option>Дом</option></select></label><label className="full">Пожелания<textarea value={form.wishes} onChange={e => setForm({ ...form, wishes: e.target.value })} placeholder="Расскажи, каким должен быть ваш общий день..." /></label><div className="full align-right"><button className="button" type="submit">Сохранить изменения ↗</button></div></form></div><div className="panel history"><div className="eyebrow">история изменений</div><h2>Контекст подбора</h2>{history.length ? history.map(item => <div className="history-item" key={`${item.created_at}-${item.field}`}><b>{item.field}</b><span>{item.old_value || 'не задано'} → {item.new_value || 'удалено'}</span></div>) : <p className="source-note">Изменения появятся после первого сохранения.</p>}</div></section> }
 
-function Tinder({ notify }: { notify: (s: string) => void }) { const [animals, setAnimals] = useState<Animal[]>([]); const [index, setIndex] = useState(0); useEffect(() => { api.tinder().then(setAnimals).catch(e => notify(e.message)) }, []); const current = animals[index]; const swipe = async (decision: 'like' | 'skip') => { if (!current) return; try { await api.swipe(current.id, decision); setIndex(index + 1); if (decision === 'like') notify(`${current.name} добавлен в избранное`) } catch (e) { notify((e as Error).message) } }; return <section><PageTitle eyebrow="04 / выбор сердцем" title="Кому сказать «да»?" text="Листай актуальных подопечных. Понравившиеся питомцы попадут в избранное." />{current ? <div className="tinder"><div className="tinder-card"><img src={current.image_url} alt={current.name} /><div className="tinder-info"><span className="tag">{current.guardians}</span><h2>{current.name}</h2><p>{current.age} · {current.gender}</p><a href={current.source_url} target="_blank" rel="noreferrer">Открыть карточку фонда ↗</a></div></div><div className="swipe-actions"><button className="skip" onClick={() => swipe('skip')}>× <span>Пропустить</span></button><button className="like" onClick={() => swipe('like')}>♥ <span>Нравится</span></button></div><div className="progress-line"><span style={{ width: `${Math.min(100, (index / animals.length) * 100)}%` }} /></div></div> : <div className="empty"><h3>Карточки закончились</h3><p>Ты просмотрел всех питомцев из текущего каталога.</p></div>}</section> }
-
-function Manager({ notify }: { notify: (s: string) => void }) {
+function Manager({ notify }: { notify: (text: string) => void }) {
   const [overview, setOverview] = useState<{ users: number; animals: number; conversations: number; without_guardians: number } | null>(null)
   const [users, setUsers] = useState<Array<User & { preference: Preference | null; favorite_count: number; conversation_count: number }>>([])
   const [events, setEvents] = useState<string[]>([])
   const [aiEnabled, setAiEnabled] = useState(false)
   const [hasKey, setHasKey] = useState(false)
   const [apiKey, setApiKey] = useState('')
-  const [flow, setFlow] = useState<Awaited<ReturnType<typeof api.aiFlow>> | null>(null)
-  const [liveTrace, setLiveTrace] = useState<Array<{ agent: string; title: string; content: string; at: string }>>([])
+  const [trace, setTrace] = useState<Array<{ agent: string; title: string; content: string; at: string }>>([])
 
-  const loadFlow = () => api.aiFlow().then(setFlow).catch(e => notify((e as Error).message))
   useEffect(() => {
-    Promise.all([api.managerOverview(), api.managerUsers(), api.aiSettings(), api.aiFlow()]).then(([stats, people, ai, currentFlow]) => { setOverview(stats); setUsers(people); setAiEnabled(ai.enabled); setHasKey(ai.has_api_key); setFlow(currentFlow) }).catch(e => notify((e as Error).message))
+    Promise.all([api.managerOverview(), api.managerUsers(), api.aiSettings()])
+      .then(([stats, people, ai]) => { setOverview(stats); setUsers(people); setAiEnabled(ai.enabled); setHasKey(ai.has_api_key) })
+      .catch(error => notify(error.message))
     const current = token()
     if (!current) return
     const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/events?token=${current}`)
     socket.onmessage = event => {
       const payload = JSON.parse(event.data)
       setEvents(old => [`${payload.type} · ${new Date(payload.at).toLocaleTimeString()}`, ...old].slice(0, 8))
-      if (payload.type === 'user_message') setLiveTrace(old => [...old, { agent: 'user', title: 'Ответ человека', content: payload.content || 'Ответ получен', at: payload.at }].slice(-12))
-      if (payload.type === 'expert_response') setLiveTrace(old => [...old, { agent: 'expert', title: 'Эксперт', content: JSON.stringify(payload.analysis, null, 2), at: payload.at }].slice(-12))
-      if (payload.type === 'assistant_context') setLiveTrace(old => [...old, { agent: 'context', title: 'Вход помощника', content: JSON.stringify({ preferences: payload.preferences, next_question: payload.next_question, catalog_names: payload.catalog_names }, null, 2), at: payload.at }].slice(-12))
-      if (payload.type === 'assistant_response') setLiveTrace(old => [...old, { agent: 'assistant', title: 'Помощник Ника', content: payload.content, at: payload.at }].slice(-12))
-      void loadFlow()
+      if (payload.type === 'user_message') setTrace(old => [...old, { agent: 'user', title: 'Ответ человека', content: payload.content || 'Ответ получен', at: payload.at }].slice(-12))
+      if (payload.type === 'assistant_response') setTrace(old => [...old, { agent: 'assistant', title: 'Помощник Ника', content: payload.content, at: payload.at }].slice(-12))
     }
     return () => socket.close()
   }, [])
 
   const saveAI = async (event: React.FormEvent) => {
     event.preventDefault()
-    try { const next = await api.updateAISettings({ enabled: aiEnabled, api_key: apiKey || undefined }); setHasKey(next.has_api_key); setApiKey(''); notify(aiEnabled ? 'AI-режим включён' : 'AI-режим выключен') } catch (e) { notify((e as Error).message) }
+    try {
+      const next = await api.updateAISettings({ enabled: aiEnabled, api_key: apiKey || undefined })
+      setHasKey(next.has_api_key); setApiKey(''); notify(aiEnabled ? 'AI-режим включён' : 'AI-режим выключен')
+    } catch (error) { notify((error as Error).message) }
   }
 
-  return <section><PageTitle eyebrow="05 / рабочее пространство команды" title="Менеджер." text="Пользователи, их анкеты и взаимодействие двух AI-агентов." /><div className="panel ai-settings"><div><div className="eyebrow">режим помощника</div><h3>Использовать AI для ответов</h3><p className="source-note">Ключ хранится только на сервере в зашифрованном виде. В браузер он не возвращается.</p></div><form onSubmit={saveAI} className="ai-settings-form"><label className="toggle"><input type="checkbox" checked={aiEnabled} onChange={e => setAiEnabled(e.target.checked)} /><span>{aiEnabled ? 'AI включён' : 'Обычный режим'}</span></label><input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={hasKey ? 'Ключ сохранён · введите новый для замены' : 'Вставьте API-ключ'} autoComplete="new-password" /><button className="button" type="submit">Сохранить режим</button></form></div><div className="ai-flow"><div className="panel-head"><div><div className="eyebrow">live trace</div><h2>Обмен сообщениями агентов</h2></div><span className="status">{liveTrace.length ? 'идёт обмен' : 'ожидание ответа'}</span></div><div className="ai-trace">{liveTrace.length ? liveTrace.map((item, index) => <article className={`ai-trace-message ${item.agent}`} key={`${item.at}-${index}`}><div><b>{item.title}</b><small>{new Date(item.at).toLocaleTimeString()}</small></div><pre>{item.content}</pre></article>) : <div className="ai-trace-empty">Откройте этот экран и отправьте ответ в пользовательском диалоге — здесь появятся реальные сообщения между экспертной моделью и помощником.</div>}</div></div><div className="metrics">{[['users', 'пользователей'], ['animals', 'питомцев в каталоге'], ['conversations', 'диалогов'], ['without_guardians', 'без опекунов']].map(([key, label]) => <div className="metric" key={key}><b>{overview?.[key as keyof typeof overview] ?? '—'}</b><span>{label}</span></div>)}</div><div className="panel table-wrap"><table><thead><tr><th>Пользователь</th><th>Роль</th><th>Диалогов</th><th>Избранное</th><th>Профиль</th></tr></thead><tbody>{users.map(person => <tr key={person.id}><td><b>{person.name}</b><small>{person.email}</small></td><td><span className="status">{person.role}</span></td><td>{person.conversation_count}</td><td>{person.favorite_count}</td><td>{person.preference?.pet_type || 'не заполнен'}</td></tr>)}</tbody></table></div><div className="room"><div className="eyebrow">живые события</div><h2>События системы</h2><p>{events.length ? events.join(' · ') : 'Новые сообщения и обновления профилей появятся здесь через WebSocket.'}</p></div></section>
+  return <section>
+    <PageHead title="Рабочее пространство команды" sub="Пользователи, их анкеты и живой обмен сообщениями между экспертной моделью и помощником." />
+    <div className="pc-metrics">
+      {([['users', 'пользователей'], ['animals', 'питомцев в каталоге'], ['conversations', 'диалогов'], ['without_guardians', 'без опекунов']] as const).map(([key, label]) =>
+        <div className="card" key={key}><b>{overview?.[key] ?? '—'}</b><span>{label}</span></div>)}
+    </div>
+
+    <div className="card">
+      <form onSubmit={saveAI} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--s3)' }}>
+        <div style={{ marginRight: 'auto' }}>
+          <p className="lbl">Режим помощника</p>
+          <p className="hint" style={{ marginTop: 0 }}>Ключ хранится только на сервере в зашифрованном виде.</p>
+        </div>
+        <div className="seg" role="group" aria-label="Режим AI">
+          <button type="button" aria-pressed={!aiEnabled} onClick={() => setAiEnabled(false)}>Обычный</button>
+          <button type="button" aria-pressed={aiEnabled} onClick={() => setAiEnabled(true)}>AI</button>
+        </div>
+        <input className="inp" style={{ maxWidth: 300 }} type="password" autoComplete="new-password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={hasKey ? 'Ключ сохранён — введите новый' : 'Вставьте API-ключ'} />
+        <button className="btn btn--fill btn--sm" type="submit">Сохранить</button>
+      </form>
+    </div>
+
+    <div className="card" style={{ marginTop: 'var(--s3)' }}>
+      <div className="sechead"><h2 className="h2">Обмен сообщениями агентов</h2><span className="chip">{trace.length ? 'идёт обмен' : 'ожидание'}</span></div>
+      {trace.length
+        ? <div className="pc-trace">{trace.map((item, index) => <article className={`pc-trace__it ${item.agent}`} key={`${item.at}-${index}`}>
+          <div><b>{item.title}</b><small>{new Date(item.at).toLocaleTimeString()}</small></div>
+          <pre>{item.content}</pre>
+        </article>)}</div>
+        : <div className="pc-empty"><p>Отправьте ответ в пользовательском диалоге — здесь появятся реальные сообщения агентов.</p></div>}
+    </div>
+
+    <div className="card" style={{ marginTop: 'var(--s3)' }}>
+      <div className="sechead"><h2 className="h2">Пользователи</h2><span className="st st--xs">{users.length}</span></div>
+      <table className="pc-table">
+        <thead><tr><th>Пользователь</th><th>Роль</th><th>Диалогов</th><th>Избранное</th><th>Анкета</th></tr></thead>
+        <tbody>{users.map(person => <tr key={person.id}>
+          <td><b>{person.name}</b><small>{person.email}</small></td>
+          <td><span className="chip">{person.role}</span></td>
+          <td>{person.conversation_count}</td>
+          <td>{person.favorite_count}</td>
+          <td>{person.preference?.pet_type || 'не заполнена'}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+
+    <div className="card" style={{ marginTop: 'var(--s3)' }}>
+      <div className="sechead"><h2 className="h2">Живые события</h2></div>
+      <p className="hint" style={{ marginTop: 0 }}>{events.length ? events.join(' · ') : 'Новые сообщения и обновления появятся здесь через WebSocket.'}</p>
+    </div>
+  </section>
 }
 
-function How() { return <section><PageTitle eyebrow="06 / как работает подбор" title="Понятный путь к своему питомцу." text="Сервис бережно собирает контекст разговора и соединяет его с актуальным каталогом фонда." /><div className="steps"><div><b>01</b><h3>Познакомьтесь</h3><p>Расскажите помощнику о ритме жизни, доме и своих ожиданиях.</p></div><div><b>02</b><h3>Уточните важное</h3><p>Ответы сохраняются в анкете. Её можно менять в любой момент.</p></div><div><b>03</b><h3>Выберите друга</h3><p>Смотрите реальные карточки питомцев и связывайтесь с фондом.</p></div></div></section> }
+function How({ go }: { go: (route: Route) => void }) {
+  return <section>
+    <PageHead title="Как работает подбор" sub="Сервис бережно собирает контекст разговора и соединяет его с актуальным каталогом фонда «НИКА»." />
+    <div className="pc-steps">
+      <article><b>01</b><h3>Познакомьтесь</h3><p>Расскажите помощнику о ритме жизни, доме и ожиданиях. Это разговор, а не анкета.</p></article>
+      <article><b>02</b><h3>Уточните важное</h3><p>Ответы сохраняются в анкете и портрете подбора. Их можно менять в любой момент.</p></article>
+      <article><b>03</b><h3>Выберите друга</h3><p>После интервью откроются карточки, отсортированные под вас, и «Выбор сердцем».</p></article>
+    </div>
+    <div className="pc-callout" style={{ marginTop: 'var(--block)' }}>
+      <div><h2>Готовы начать?</h2><p>Первый вопрос уже ждёт в диалоге с помощником.</p></div>
+      <button className="btn btn--light" onClick={() => go('chat')}>Начать разговор</button>
+    </div>
+  </section>
+}
 
-function Auth({ onSuccess }: { onSuccess: (result: { access_token: string; user: User; conversation: Conversation }) => void }) { const [loginMode, setLoginMode] = useState(false); const [error, setError] = useState(''); const submit = async (e: React.FormEvent<HTMLFormElement>) => { e.preventDefault(); setError(''); const data = Object.fromEntries(new FormData(e.currentTarget)); try { const result = loginMode ? await api.login({ email: String(data.email), password: String(data.password) }) : await api.register({ name: String(data.name), email: String(data.email), password: String(data.password) }); onSuccess(result) } catch (e) { setError((e as Error).message) } }; return <div className="auth-wrap"><form className="auth-card" onSubmit={submit}><div className="eyebrow">PET CONNECT / {loginMode ? 'вход' : 'регистрация'}</div><h1>{loginMode ? 'С возвращением.' : 'Найдём своего.'}</h1><p className="lead">{loginMode ? 'Продолжи подбор с того места, где остановился.' : 'Создай профиль и сразу начни знакомство с помощником.'}</p>{!loginMode && <label>Имя<input name="name" minLength={2} required placeholder="Например, Аня" /></label>}<label>Email<input name="email" type="email" required placeholder="you@example.com" /></label><label>Пароль<input name="password" type="password" minLength={8} required placeholder="не короче 8 символов" /></label>{error && <div className="error">{error}</div>}<button className="button lime full" type="submit">{loginMode ? 'Войти' : 'Создать профиль'} ↗</button><button className="link-button center" type="button" onClick={() => setLoginMode(!loginMode)}>{loginMode ? 'Создать новый профиль' : 'У меня уже есть аккаунт'}</button></form></div> }
-
-function PageTitle({ eyebrow, title, text, action }: { eyebrow: string; title: string; text: string; action?: React.ReactNode }) { return <div className="page-title"><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p className="lead">{text}</p></div>{action}</div> }
+function Auth({ onSuccess }: { onSuccess: (result: { access_token: string; user: User; conversation: Conversation }) => void }) {
+  const [loginMode, setLoginMode] = useState(false)
+  const [error, setError] = useState('')
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setError('')
+    const data = Object.fromEntries(new FormData(event.currentTarget))
+    try {
+      const result = loginMode
+        ? await api.login({ email: String(data.email), password: String(data.password) })
+        : await api.register({ name: String(data.name), email: String(data.email), password: String(data.password) })
+      onSuccess(result)
+    } catch (e) { setError((e as Error).message) }
+  }
+  return <div className="pc-auth">
+    <form className="card" onSubmit={submit}>
+      <p className="lbl">PET CONNECT / {loginMode ? 'вход' : 'регистрация'}</p>
+      <h1>{loginMode ? 'С возвращением' : 'Найдём своего'}</h1>
+      <p>{loginMode ? 'Продолжите подбор с того места, где остановились.' : 'Создайте профиль и сразу начните знакомство с помощником.'}</p>
+      {!loginMode && <label>Имя<input className="inp" name="name" minLength={2} required placeholder="Например, Аня" /></label>}
+      <label>Email<input className="inp" name="email" type="email" required placeholder="you@example.com" /></label>
+      <label>Пароль<input className="inp" name="password" type="password" minLength={8} required placeholder="не короче 8 символов" /></label>
+      {error && <div className="pc-err" style={{ marginBottom: 'var(--s3)' }}>{error}</div>}
+      <button className="btn btn--fill" type="submit">{loginMode ? 'Войти' : 'Создать профиль'}</button>
+      <button className="lnk" type="button" onClick={() => setLoginMode(!loginMode)}>{loginMode ? 'Создать новый профиль' : 'У меня уже есть аккаунт'}</button>
+    </form>
+  </div>
+}
 
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>)
-
-
