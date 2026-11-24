@@ -236,9 +236,7 @@ class AIService:
             {"role": "system", "content": NARRATOR_SYSTEM_PROMPT},
             {"role": "user", "content": json.dumps({"visible_preferences": preference, "private_portrait": portrait or {}, "catalog_names": names, "user_message": text, "next_question": next_question}, ensure_ascii=False)},
         ]
-        raw = await self.complete(messages, temperature=0.7, db=db, agent="narrator", user_id=user_id, conversation_id=conversation_id, max_tokens=600)
-        if raw and raw.finish_reason == "length":
-            raw = await self.complete(messages, temperature=0.7, db=db, agent="narrator", user_id=user_id, conversation_id=conversation_id, max_tokens=900)
+        raw = await self.complete(messages, temperature=0.7, db=db, agent="narrator", user_id=user_id, conversation_id=conversation_id, max_tokens=5000)
         if raw:
             return raw.text.strip()
         return f"Спасибо, это важно. {next_question}"
