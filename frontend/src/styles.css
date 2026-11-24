@@ -164,11 +164,12 @@
 .pc-swipe{display:flex;align-items:center;justify-content:center;gap:var(--s4);margin-top:var(--s4)}
 .pc-card__actions{position:absolute;z-index:3;left:0;right:0;bottom:var(--s4);margin:0;padding:0 var(--card-pad)}
 .pc-swipe button,.pc-details{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:var(--h-xl);height:var(--h-xl);border:1px solid rgba(255,255,255,.72);border-radius:var(--r-round);cursor:pointer;font-size:22px;line-height:1;backdrop-filter:blur(8px)}
-.pc-details{background:rgba(255,255,255,.9);color:var(--ink-2);text-decoration:none}
+.pc-details{background:var(--green);border-color:var(--green);color:var(--on-dark);text-decoration:none}
 .pc-swipe span{font-size:10px;letter-spacing:var(--ls-xs);color:var(--ink-3)}
 .pc-swipe .pc-no{background:rgba(255,255,255,.9);box-shadow:none;color:var(--ink-2)}
 .pc-swipe .pc-yes{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-deep)}
-.pc-swipe .pc-no span,.pc-swipe .pc-details span{color:var(--ink-2)}
+.pc-swipe .pc-no span{color:var(--ink-2)}
+.pc-swipe .pc-details span{color:var(--on-dark-1)}
 .pc-swipe .pc-yes span{color:var(--accent-deep)}
 .pc-side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s3);max-width:900px}
 
