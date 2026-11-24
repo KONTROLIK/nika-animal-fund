@@ -10,6 +10,7 @@ export function TinderDeck({ notify, go, user }: Props) {
   const [animals, setAnimals] = useState<Animal[]>([])
   const [index, setIndex] = useState(0)
   const [drag, setDrag] = useState(0)
+  const [pendingDecision, setPendingDecision] = useState<'like' | 'skip' | null>(null)
   const startX = useRef<number | null>(null)
   const complete = user.cards_access || (portrait?.completeness || 0) >= 100
 
@@ -22,13 +23,16 @@ export function TinderDeck({ notify, go, user }: Props) {
 
   const decide = async (decision: 'like' | 'skip') => {
     const animal = animals[index]
-    if (!animal) return
+    if (!animal || pendingDecision) return
+    setPendingDecision(decision)
+    await new Promise(resolve => window.setTimeout(resolve, 220))
     try {
       await api.swipe(animal.id, decision)
       setIndex(value => value + 1)
       setDrag(0)
       if (decision === 'like') notify(`${animal.name} добавлен в избранное`)
     } catch (error) { notify((error as Error).message) }
+    finally { setPendingDecision(null) }
   }
 
   const pointerDown = (event: React.PointerEvent) => { startX.current = event.clientX; event.currentTarget.setPointerCapture(event.pointerId) }
@@ -58,7 +62,7 @@ export function TinderDeck({ notify, go, user }: Props) {
     {animal
       ? <div className="pc-deck">
         <div>
-          <article className="pc-card" style={{ transform: `translateX(${drag}px) rotate(${drag / 22}deg)` }} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp}>
+          <article className={`pc-card${pendingDecision ? ` pc-card--${pendingDecision}` : ''}`} style={pendingDecision ? undefined : { transform: `translateX(${drag}px) rotate(${drag / 22}deg)` }} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp}>
             <figure>
               <img className="pc-card__backdrop" src={animal.image_url} alt="" aria-hidden="true" draggable={false} />
               <div className="pc-card__image-frame">
