@@ -65,9 +65,9 @@ class AISettingsRecord(Base):
     id: Mapped[int] = mapped_column(primary_key=True, default=1)
     enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     encrypted_api_key: Mapped[str | None] = mapped_column(Text)
-    base_url: Mapped[str] = mapped_column(String(300), default="https://api.deepseek.com")
-    narrator_model: Mapped[str] = mapped_column(String(160), default="deepseek-flash")
-    expert_model: Mapped[str] = mapped_column(String(160), default="deepseek-flash")
+    base_url: Mapped[str] = mapped_column(String(300), default="https://anymodel.org/v1")
+    narrator_model: Mapped[str] = mapped_column(String(160), default="ds/deepseek-v4.1-flash")
+    expert_model: Mapped[str] = mapped_column(String(160), default="ds/deepseek-v4.1-flash")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 

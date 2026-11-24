@@ -6,7 +6,8 @@ from .auth import hash_password
 from .catalog import fetch_catalog
 from .config import get_settings
 from .db import SessionLocal
-from .models import Animal, User
+from .models import AISettingsRecord, Animal, User
+from .secrets import encrypt_secret
 
 
 def seed():
@@ -39,6 +40,17 @@ def seed():
             manager = db.scalar(select(User).where(User.email == settings.manager_email.lower()))
             if not manager:
                 db.add(User(name=settings.manager_name, email=settings.manager_email.lower(), password_hash=hash_password(settings.manager_password), role="MANAGER"))
+        if settings.ai_api_key:
+            ai_record = db.scalar(select(AISettingsRecord).where(AISettingsRecord.id == 1))
+            if not ai_record:
+                ai_record = AISettingsRecord(id=1)
+                db.add(ai_record)
+            if not ai_record.encrypted_api_key:
+                ai_record.encrypted_api_key = encrypt_secret(settings.ai_api_key.strip())
+                ai_record.enabled = True
+                ai_record.base_url = settings.ai_base_url
+                ai_record.narrator_model = settings.ai_model
+                ai_record.expert_model = settings.ai_model
         db.commit()
     finally:
         db.close()
