@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { api, type Animal, type Conversation, type Message, type PortraitStatus, type Preference, type User, setToken, token } from './api'
+import { api, type AIAnalytics, type Animal, type Conversation, type Message, type PortraitStatus, type Preference, type User, setToken, token } from './api'
 import './ds.css'
 import './lk.css'
 import './styles.css'
@@ -162,7 +162,7 @@ function Home({ go, user, notify }: { go: (route: Route) => void; user: User | n
           <div className="pc-stats">
             <div><b>{animals.length || '—'}</b><span>карточек в каталоге</span></div>
             <div><b>{portrait?.answer_count || 0}</b><span>ответов в интервью</span></div>
-            <div><b>{user ? '15' : '—'}</b><span>тем подбора</span></div>
+            <div><b>{user ? (portrait?.topics.length || 8) : '—'}</b><span>тем подбора</span></div>
             <div><b>{user ? '6' : '—'}</b><span>карточек за раз</span></div>
           </div>
         </div>
@@ -184,7 +184,7 @@ function Home({ go, user, notify }: { go: (route: Route) => void; user: User | n
 
       {user && completeness > 0 && completeness < 100 && <div className="now">
         <p className="st st--lg">Интервью пройдено на {completeness}%</p>
-        <p className="t">Осталось тем: {15 - (portrait?.topics.filter(topic => topic.covered).length || 0)}. После интервью откроются персональные карточки.</p>
+        <p className="t">Осталось тем: {(portrait?.topics.length || 8) - (portrait?.topics.filter(topic => topic.covered).length || 0)}. После интервью откроются персональные карточки.</p>
         <div className="bar"><i style={{ width: `${completeness}%` }} /></div>
         <div className="acts"><button className="btn btn--fill btn--sm" onClick={() => go('chat')}>Продолжить разговор</button></div>
       </div>}
@@ -319,7 +319,7 @@ function Chat({ conversation, conversations, setConversation, onConversationCrea
   }
 
   const completeness = portrait?.completeness || 0
-  const remaining = portrait?.topics.filter(topic => !topic.covered).length ?? 15
+  const remaining = portrait?.topics.filter(topic => !topic.covered).length ?? (portrait?.topics.length || 8)
 
   return <section>
     <PageHead title="Помощник Ника" sub="Обычный разговор вместо анкеты: помощник задаёт по одному вопросу и собирает контекст для подбора." action={<button className="btn btn--line btn--sm" onClick={newChat}>Новый диалог</button>} />
@@ -327,7 +327,7 @@ function Chat({ conversation, conversations, setConversation, onConversationCrea
       <div className="pc-chat__main">
         <div className="pc-chat__head">
           <div className="pc-bot"><i>✦</i><div><b>Ника</b><small>персональный помощник · онлайн</small></div></div>
-          <span className="chip">{conversation?.interview_complete ? 'интервью завершено' : `тем: ${15 - remaining}/15`}</span>
+          <span className="chip">{conversation?.interview_complete ? 'интервью завершено' : `тем: ${(portrait?.topics.length || 8) - remaining}/${portrait?.topics.length || 8}`}</span>
         </div>
         <div className="pc-progress">
           <div className="pc-progress__h"><span>Прогресс интервью</span><span>{completeness}%</span></div>
@@ -424,6 +424,8 @@ function Manager({ notify }: { notify: (text: string) => void }) {
         <div className="card" key={key}><b>{overview?.[key] ?? '—'}</b><span>{label}</span></div>)}
     </div>
 
+    <AIAnalyticsPanel notify={notify} />
+
     <div className="card">
       <form onSubmit={saveAI} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--s3)' }}>
         <div style={{ marginRight: 'auto' }}>
@@ -468,6 +470,75 @@ function Manager({ notify }: { notify: (text: string) => void }) {
       <p className="hint" style={{ marginTop: 0 }}>{events.length ? events.join(' · ') : 'Новые сообщения и обновления появятся здесь через WebSocket.'}</p>
     </div>
   </section>
+}
+
+function AIAnalyticsPanel({ notify }: { notify: (text: string) => void }) {
+  const [analytics, setAnalytics] = useState<AIAnalytics | null>(null)
+  const [pricing, setPricing] = useState<Array<{ model: string; input_usd_per_million: number; output_usd_per_million: number; updated_at: string | null }>>([])
+  const [startDate, setStartDate] = useState(() => new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10))
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [model, setModel] = useState('')
+  const [granularity, setGranularity] = useState('day')
+  const [pricingForm, setPricingForm] = useState({ model: '', input_usd_per_million: '', output_usd_per_million: '' })
+
+  const load = () => {
+    const params = new URLSearchParams({ start_date: startDate, end_date: endDate, granularity })
+    if (model) params.set('model', model)
+    api.aiAnalytics(`?${params}`).then(setAnalytics).catch(error => notify(error.message))
+  }
+
+  useEffect(() => {
+    load()
+    api.aiPricing().then(setPricing).catch(error => notify(error.message))
+  }, [])
+
+  const savePricing = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!pricingForm.model) return
+    try {
+      const saved = await api.updateAIPricing({ model: pricingForm.model, input_usd_per_million: Number(pricingForm.input_usd_per_million) || 0, output_usd_per_million: Number(pricingForm.output_usd_per_million) || 0, updated_at: null })
+      setPricing(items => [...items.filter(item => item.model !== saved.model), saved].sort((a, b) => a.model.localeCompare(b.model)))
+      setPricingForm({ model: '', input_usd_per_million: '', output_usd_per_million: '' })
+      notify('Тариф сохранён')
+    } catch (error) { notify((error as Error).message) }
+  }
+
+  const summary = analytics?.summary
+  const maxCost = Math.max(...(analytics?.series.map(item => item.cost_usd) || [0]), 0.000001)
+  const money = (value: number | null | undefined) => value == null ? '—' : `$${value.toFixed(6)}`
+
+  return <div className="pc-ai-analytics">
+    <div className="sechead"><div><h2 className="h2">Финансовая аналитика AI</h2><p className="hint">Стоимость рассчитывается только по usage провайдера и сохранённым тарифам модели.</p></div><span className="chip">{summary?.incomplete_requests || 0} неполных</span></div>
+    <div className="pc-ai-filters">
+      <label>С <input className="inp" type="date" value={startDate} onChange={event => setStartDate(event.target.value)} /></label>
+      <label>По <input className="inp" type="date" value={endDate} onChange={event => setEndDate(event.target.value)} /></label>
+      <label>Модель <select className="inp" value={model} onChange={event => setModel(event.target.value)}><option value="">Все модели</option>{(analytics?.models || []).map(item => <option key={item}>{item}</option>)}</select></label>
+      <label>Период <select className="inp" value={granularity} onChange={event => setGranularity(event.target.value)}><option value="day">По дням</option><option value="week">По неделям</option><option value="month">По месяцам</option></select></label>
+      <button className="btn btn--line btn--sm" onClick={load}>Обновить</button>
+    </div>
+    <div className="pc-ai-metrics">
+      <div><b>{summary?.total_tokens.toLocaleString() || '0'}</b><span>всего токенов</span></div>
+      <div><b>{summary?.input_tokens.toLocaleString() || '0'}</b><span>input tokens</span></div>
+      <div><b>{summary?.output_tokens.toLocaleString() || '0'}</b><span>output tokens</span></div>
+      <div><b>{money(summary?.cost_usd)}</b><span>общая стоимость</span></div>
+      <div><b>{money(summary?.average_cost_usd)}</b><span>средняя стоимость</span></div>
+      <div><b>{summary?.requests || 0}</b><span>запросов</span></div>
+    </div>
+    <div className="pc-ai-grid">
+      <div className="card pc-ai-chart"><div className="sechead"><h3 className="h3">Динамика расходов</h3><span className="st st--xs">по дням</span></div>{analytics?.series.length ? <div className="pc-bars">{analytics.series.map(item => <div className="pc-bar" key={item.date} title={`${item.date}: ${money(item.cost_usd)}`}><i style={{ height: `${Math.max(3, item.cost_usd / maxCost * 100)}%` }} /><small>{item.date.slice(5)}</small></div>)}</div> : <div className="pc-empty">Нет usage за выбранный период.</div>}</div>
+      <div className="card"><div className="sechead"><h3 className="h3">По моделям</h3><span className="st st--xs">сравнение</span></div>{analytics?.by_model.length ? <table className="pc-table"><thead><tr><th>Модель</th><th>Запросов</th><th>Токенов</th><th>Стоимость</th></tr></thead><tbody>{analytics.by_model.map(item => <tr key={item.model}><td>{item.model}</td><td>{item.requests}</td><td>{item.tokens.toLocaleString()}</td><td>{money(item.cost_usd)}</td></tr>)}</tbody></table> : <div className="pc-empty">Модели появятся после первого запроса.</div>}</div>
+    </div>
+    <div className="pc-ai-grid">
+      <div className="card"><div className="sechead"><h3 className="h3">Самые затратные запросы</h3></div><AIUsageTable items={analytics?.most_expensive || []} money={money} /></div>
+      <div className="card"><div className="sechead"><h3 className="h3">Тарифы моделей</h3><span className="st st--xs">USD за 1M</span></div><form className="pc-ai-pricing" onSubmit={savePricing}><input className="inp" placeholder="Название модели" value={pricingForm.model} onChange={event => setPricingForm({ ...pricingForm, model: event.target.value })} required /><input className="inp" type="number" min="0" step="any" placeholder="Input" value={pricingForm.input_usd_per_million} onChange={event => setPricingForm({ ...pricingForm, input_usd_per_million: event.target.value })} required /><input className="inp" type="number" min="0" step="any" placeholder="Output" value={pricingForm.output_usd_per_million} onChange={event => setPricingForm({ ...pricingForm, output_usd_per_million: event.target.value })} required /><button className="btn btn--fill btn--sm" type="submit">Сохранить</button></form>{pricing.length ? <table className="pc-table"><thead><tr><th>Модель</th><th>Input</th><th>Output</th></tr></thead><tbody>{pricing.map(item => <tr key={item.model}><td>{item.model}</td><td>${item.input_usd_per_million}</td><td>${item.output_usd_per_million}</td></tr>)}</tbody></table> : <p className="hint">Тарифы не настроены. Стоимость останется неизвестной, пока менеджер не добавит тариф.</p>}</div>
+    </div>
+    <div className="card"><div className="sechead"><h3 className="h3">История запросов</h3><span className="st st--xs">последние 100</span></div><AIUsageTable items={analytics?.history || []} money={money} /></div>
+  </div>
+}
+
+function AIUsageTable({ items, money }: { items: AIAnalytics['history']; money: (value: number | null | undefined) => string }) {
+  if (!items.length) return <div className="pc-empty">Запросов с usage пока нет.</div>
+  return <div className="pc-ai-table-wrap"><table className="pc-table"><thead><tr><th>Время / пользователь</th><th>Модель</th><th>Input</th><th>Output</th><th>Стоимость</th></tr></thead><tbody>{items.map(item => <tr key={item.id}><td>{new Date(item.created_at).toLocaleString()}<small>{item.user_name || 'системный запрос'} · {item.agent}</small></td><td>{item.model}</td><td>{item.input_tokens?.toLocaleString() || '—'}</td><td>{item.output_tokens?.toLocaleString() || '—'}</td><td>{item.cost_usd == null ? <span className="pc-incomplete">неполная статистика</span> : money(item.cost_usd)}</td></tr>)}</tbody></table></div>
 }
 
 function How({ go }: { go: (route: Route) => void }) {

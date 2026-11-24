@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .db import Base
 
@@ -69,6 +69,33 @@ class AISettingsRecord(Base):
     narrator_model: Mapped[str] = mapped_column(String(160), default="am/nemotron-3-ultra-550b-a55b")
     expert_model: Mapped[str] = mapped_column(String(160), default="am/nemotron-3-ultra-550b-a55b")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class AIModelPricing(Base):
+    __tablename__ = "ai_model_pricing"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    model: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    input_usd_per_million: Mapped[float] = mapped_column(Numeric(20, 10), default=0)
+    output_usd_per_million: Mapped[float] = mapped_column(Numeric(20, 10), default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class AIUsageLog(Base):
+    __tablename__ = "ai_usage_logs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    conversation_id: Mapped[int | None] = mapped_column(ForeignKey("conversations.id", ondelete="SET NULL"), index=True)
+    agent: Mapped[str] = mapped_column(String(40), index=True)
+    model: Mapped[str] = mapped_column(String(160), index=True)
+    input_tokens: Mapped[int | None] = mapped_column(Integer)
+    output_tokens: Mapped[int | None] = mapped_column(Integer)
+    total_tokens: Mapped[int | None] = mapped_column(Integer)
+    cost_usd: Mapped[float | None] = mapped_column(Numeric(20, 10))
+    usage_available: Mapped[bool] = mapped_column(Boolean, default=False)
+    pricing_available: Mapped[bool] = mapped_column(Boolean, default=False)
+    status: Mapped[str] = mapped_column(String(20), default="success")
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
 
 
 class Conversation(Base):

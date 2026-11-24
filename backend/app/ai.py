@@ -1,10 +1,11 @@
 import json
 import re
+from dataclasses import dataclass
 import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from .config import get_settings
-from .models import AISettingsRecord
+from .models import AIModelPricing, AISettingsRecord, AIUsageLog
 from .secrets import decrypt_secret
 
 
@@ -66,22 +67,25 @@ NARRATOR_SYSTEM_PROMPT = """
 
 
 PORTRAIT_TOPICS = [
-    ("routine", "Обычный ритм", "Как обычно проходит твой будний день и что меняется на выходных?"),
-    ("time", "Время и отсутствие дома", "Сколько времени питомец обычно будет проводить один? Что поможет тебе заботиться о нём в загруженные дни?"),
-    ("home", "Дом и пространство", "Расскажи о доме: квартира или дом, есть ли безопасное место для питомца, двор, лестницы или другие важные особенности?"),
-    ("household", "Люди рядом", "Кто живёт вместе с тобой? Есть ли дети, пожилые люди или близкие, чьё мнение важно для решения?"),
-    ("animals", "Другие животные", "Есть ли у тебя сейчас другие животные? Как они обычно реагируют на новых соседей?"),
+    ("routine", "Ритм и время", "Как проходит твой обычный день, сколько времени ты бываешь дома и что меняется на выходных?"),
+    ("home", "Дом и близкие", "Расскажи о доме и тех, кто живёт рядом: квартира это или дом, есть ли дети, другие важные особенности?"),
+    ("animals", "Другие животные", "Есть ли у тебя сейчас животные или опыт совместной жизни с ними? Как они реагируют на новых соседей?"),
     ("experience", "Опыт заботы", "Был ли у тебя раньше питомец? Что в этом опыте было хорошего, а что оказалось сложным?"),
-    ("temperament", "Характер друга", "Какой характер тебе ближе: спокойный и осторожный, общительный и ласковый или энергичный и самостоятельный?"),
-    ("activity", "Совместная активность", "Какие занятия ты действительно готов делать вместе: прогулки, игры, обучение, спокойные вечера?"),
-    ("care", "Уход и быт", "К каким регулярным обязанностям ты готов: уход, обучение, поездки к ветеринару, специальный режим?"),
-    ("health", "Здоровье и особенности", "Есть ли аллергии, ограничения или медицинские особенности в семье, которые важно учесть заранее?"),
-    ("budget", "Расходы", "Как ты планируешь расходы на корм, уход и ветеринарную помощь? Можно ответить примерно или пропустить."),
-    ("motivation", "Мотивация", "Почему сейчас тебе хочется взять питомца? Что ты особенно надеешься дать ему?"),
-    ("expectations", "Ожидания", "Каким ты представляешь первые месяцы вместе? Что будет для тебя признаком, что вы привыкаете друг к другу?"),
-    ("boundaries", "Границы и сложности", "С какими особенностями поведения ты точно не готов столкнуться, а к чему готов относиться терпеливо?"),
-    ("support", "Поддержка", "Кто сможет помочь тебе в форс-мажорной ситуации, отпуске или периоде адаптации питомца?"),
+    ("temperament", "Характер и активность", "Какой характер и совместные занятия тебе ближе: спокойные вечера, прогулки, игры, обучение, общительность или самостоятельность?"),
+    ("care", "Уход и ограничения", "К каким регулярным обязанностям ты готов и есть ли аллергии, ограничения или особенности здоровья, которые важно учесть? Можно пропустить."),
+    ("motivation", "Мотивация и ожидания", "Почему сейчас хочется взять питомца и каким ты представляешь ваши первые месяцы вместе?"),
+    ("support", "Поддержка и сложности", "Кто поможет в отпуск или форс-мажор и с какими сложностями поведения ты готов справляться терпеливо?"),
 ]
+
+
+@dataclass
+class Completion:
+    text: str
+    model: str
+    input_tokens: int | None
+    output_tokens: int | None
+    total_tokens: int | None
+    usage_available: bool
 
 
 class AIService:
@@ -98,16 +102,17 @@ class AIService:
                 return None
             key = decrypt_secret(record.encrypted_api_key)
             base_url = record.base_url
-            model = self.settings.ai_model
+            model = record.narrator_model if agent == "narrator" else record.expert_model
         if not key:
             return None
         return key, base_url, model
 
-    async def complete(self, messages: list[dict], temperature: float = 0.4, db: Session | None = None, agent: str = "narrator") -> str | None:
+    async def complete(self, messages: list[dict], temperature: float = 0.4, db: Session | None = None, agent: str = "narrator", user_id: int | None = None, conversation_id: int | None = None) -> Completion | None:
         runtime = self.runtime(db, agent)
         if not runtime:
             return None
         key, base_url, model = runtime
+        log = AIUsageLog(user_id=user_id, conversation_id=conversation_id, agent=agent, model=model, status="error") if db is not None else None
         try:
             async with httpx.AsyncClient(timeout=45) as client:
                 response = await client.post(
@@ -116,17 +121,40 @@ class AIService:
                     json={"model": model, "messages": messages, "temperature": temperature},
                 )
                 response.raise_for_status()
-                return response.json()["choices"][0]["message"]["content"]
-        except (httpx.HTTPError, KeyError, IndexError, TypeError):
+                body = response.json()
+                usage = body.get("usage") or {}
+                input_tokens = usage.get("prompt_tokens", usage.get("input_tokens"))
+                output_tokens = usage.get("completion_tokens", usage.get("output_tokens"))
+                total_tokens = usage.get("total_tokens")
+                if total_tokens is None and input_tokens is not None and output_tokens is not None:
+                    total_tokens = input_tokens + output_tokens
+                if log is not None:
+                    pricing = db.scalar(select(AIModelPricing).where(AIModelPricing.model == model))
+                    log.input_tokens = input_tokens
+                    log.output_tokens = output_tokens
+                    log.total_tokens = total_tokens
+                    log.usage_available = input_tokens is not None and output_tokens is not None
+                    log.pricing_available = pricing is not None
+                    if log.usage_available and pricing:
+                        log.cost_usd = (input_tokens * float(pricing.input_usd_per_million) + output_tokens * float(pricing.output_usd_per_million)) / 1_000_000
+                    log.status = "success"
+                    db.add(log)
+                    db.flush()
+                return Completion(body["choices"][0]["message"]["content"], model, input_tokens, output_tokens, total_tokens, log.usage_available if log else input_tokens is not None and output_tokens is not None)
+        except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as error:
+            if log is not None:
+                log.error_message = str(error)[:1000]
+                db.add(log)
+                db.flush()
             return None
 
-    async def analyze(self, text: str, db: Session | None = None) -> dict:
+    async def analyze(self, text: str, db: Session | None = None, user_id: int | None = None, conversation_id: int | None = None) -> dict:
         raw = await self.complete([
             {"role": "system", "content": EXPERT_SYSTEM_PROMPT + " Return JSON only with optional keys pet_type, rhythm, home, wishes."},
             {"role": "user", "content": text},
-        ], db=db, agent="expert")
+        ], db=db, agent="expert", user_id=user_id, conversation_id=conversation_id)
         if raw:
-            match = re.search(r"\{.*\}", raw, re.S)
+            match = re.search(r"\{.*\}", raw.text, re.S)
             if match:
                 try:
                     result = json.loads(match.group(0))
@@ -147,14 +175,14 @@ class AIService:
             result["home"] = "Дом"
         return result
 
-    async def analyze_portrait(self, text: str, topic_id: str, portrait: dict, db: Session | None = None) -> dict:
+    async def analyze_portrait(self, text: str, topic_id: str, portrait: dict, db: Session | None = None, user_id: int | None = None, conversation_id: int | None = None) -> dict:
         topic = next((item for item in PORTRAIT_TOPICS if item[0] == topic_id), PORTRAIT_TOPICS[0])
         raw = await self.complete([
             {"role": "system", "content": EXPERT_SYSTEM_PROMPT + " Return JSON only: {preferences:{pet_type,rhythm,home,wishes}, facts:{}, topic_complete:boolean, summary:string}."},
             {"role": "user", "content": json.dumps({"current_topic": topic[1], "question": topic[2], "previous_portrait": portrait, "answer": text}, ensure_ascii=False)},
-        ], db=db, agent="expert")
+        ], db=db, agent="expert", user_id=user_id, conversation_id=conversation_id)
         if raw:
-            match = re.search(r"\{.*\}", raw, re.S)
+            match = re.search(r"\{.*\}", raw.text, re.S)
             if match:
                 try:
                     result = json.loads(match.group(0))
@@ -181,32 +209,25 @@ class AIService:
         elif "дом" in lower:
             preferences["home"] = "Дом"
         topic_markers = {
-            "routine": ("будн", "выходн", "работ", "день"),
-            "time": ("час", "дома", "один", "отсутств"),
-            "home": ("квартир", "дом", "двор", "лестниц", "место"),
-            "household": ("семь", "жив", "дет", "пожил", "близк"),
+            "routine": ("будн", "выходн", "работ", "день", "час", "дома", "один", "отсутств"),
+            "home": ("квартир", "дом", "двор", "лестниц", "место", "семь", "жив", "дет", "пожил", "близк"),
             "animals": ("кот", "собак", "живот", "питом"),
             "experience": ("раньше", "опыт", "был питом", "заботил"),
-            "temperament": ("спокой", "ласк", "энерг", "характер", "общител"),
-            "activity": ("гуля", "игр", "обуч", "занят", "прогул"),
-            "care": ("уход", "ветеринар", "корм", "режим", "обязан"),
-            "health": ("аллер", "здоров", "огранич", "медицин"),
-            "budget": ("руб", "расход", "бюджет", "стоим", "финанс"),
-            "motivation": ("хочу", "почему", "дать", "причин", "мечт"),
-            "expectations": ("ожида", "первые", "привык", "вместе", "представля"),
-            "boundaries": ("не готов", "сложн", "не хочу", "границ", "терпел"),
-            "support": ("помощ", "сосед", "родствен", "отпуск", "форс-мажор"),
+            "temperament": ("спокой", "ласк", "энерг", "характер", "общител", "гуля", "игр", "обуч", "занят", "прогул"),
+            "care": ("уход", "ветеринар", "корм", "режим", "обязан", "аллер", "здоров", "огранич", "медицин"),
+            "motivation": ("хочу", "почему", "дать", "причин", "мечт", "ожида", "первые", "привык", "вместе", "представля"),
+            "support": ("помощ", "сосед", "родствен", "отпуск", "форс-мажор", "не готов", "сложн", "не хочу", "границ", "терпел"),
         }
         topic_complete = any(marker in lower for marker in topic_markers.get(topic_id, ())) and len(text.strip()) >= 8
         return {"preferences": preferences, "facts": {topic_id: text.strip()}, "topic_complete": topic_complete, "summary": ""}
 
-    async def narrate(self, text: str, preference: dict, recommendations: list[dict], portrait: dict | None = None, next_topic: tuple | None = None, db: Session | None = None) -> str:
+    async def narrate(self, text: str, preference: dict, recommendations: list[dict], portrait: dict | None = None, next_topic: tuple | None = None, db: Session | None = None, user_id: int | None = None, conversation_id: int | None = None) -> str:
         names = ", ".join(item["name"] for item in recommendations[:3])
         next_question = next_topic[2] if next_topic else ("Хочешь посмотреть первые совпадения?" if recommendations else "Если хочешь, расскажи, что ещё важно учесть.")
         raw = await self.complete([
             {"role": "system", "content": NARRATOR_SYSTEM_PROMPT},
             {"role": "user", "content": json.dumps({"visible_preferences": preference, "private_portrait": portrait or {}, "catalog_names": names, "user_message": text, "next_question": next_question}, ensure_ascii=False)},
-        ], temperature=0.7, db=db, agent="narrator")
+        ], temperature=0.7, db=db, agent="narrator", user_id=user_id, conversation_id=conversation_id)
         if raw:
-            return raw.strip()
+            return raw.text.strip()
         return f"Спасибо, это важно. {next_question}"

@@ -8,6 +8,9 @@ export type Conversation = { id: number; title: string; interview_complete: bool
 export type ChatResult = { conversation: Conversation; user_message: Message; assistant_message: Message; preference: Preference; recommendations: Animal[]; portrait: PortraitStatus }
 export type ManagerDetails = { user: User; preference: Preference | null; portrait: { summary: string | null; facts: Record<string, string>; answers: Array<{ topic: string; answer: string; at: string }>; status: PortraitStatus }; favorites: Animal[]; conversations: Array<{ id: number; title: string; messages: Message[] }> }
 export type AISettings = { enabled: boolean; has_api_key: boolean; updated_at: string | null }
+export type AIPricing = { model: string; input_usd_per_million: number; output_usd_per_million: number; updated_at: string | null }
+export type AIUsageItem = { id: number; created_at: string; agent: string; model: string; input_tokens: number | null; output_tokens: number | null; total_tokens: number | null; cost_usd: number | null; usage_available: boolean; pricing_available: boolean; status: string; user_name: string | null }
+export type AIAnalytics = { period: { start_date: string; end_date: string }; summary: { requests: number; input_tokens: number; output_tokens: number; total_tokens: number; cost_usd: number; average_cost_usd: number; complete_requests: number; incomplete_requests: number }; series: Array<{ date: string; requests: number; tokens: number; cost_usd: number }>; by_model: Array<{ model: string; requests: number; tokens: number; cost_usd: number }>; most_expensive: AIUsageItem[]; history: AIUsageItem[]; models: string[] }
 
 const API = import.meta.env.VITE_API_BASE || ''
 const tokenKey = 'petconnect-token'
@@ -52,4 +55,7 @@ export const api = {
   aiSettings: () => request<AISettings>('/api/manager/ai-settings'),
   updateAISettings: (body: { enabled: boolean; api_key?: string; clear_api_key?: boolean; base_url?: string }) => request<AISettings>('/api/manager/ai-settings', { method: 'PUT', body: JSON.stringify(body) }),
   aiFlow: () => request<{ enabled: boolean; conversation_id: number | null; user_name: string | null; user_answer: string | null; expert: { covered_topics: string[]; facts: Record<string, string>; summary: string | null; preferences: Preference | null }; assistant_reply: string | null; recommendation_ready: boolean }>('/api/manager/ai-flow'),
+  aiAnalytics: (params = '') => request<AIAnalytics>(`/api/manager/ai-analytics${params}`),
+  aiPricing: () => request<AIPricing[]>('/api/manager/ai-pricing'),
+  updateAIPricing: (body: AIPricing) => request<AIPricing>('/api/manager/ai-pricing', { method: 'PUT', body: JSON.stringify(body) }),
 }

@@ -80,6 +80,42 @@ class AISettingsIn(BaseModel):
     clear_api_key: bool = False
 
 
+class AIPricingIn(BaseModel):
+    model: str = Field(min_length=1, max_length=160)
+    input_usd_per_million: float = Field(ge=0)
+    output_usd_per_million: float = Field(ge=0)
+
+
+class AIPricingOut(AIPricingIn):
+    model_config = ConfigDict(from_attributes=True)
+    updated_at: datetime | None = None
+
+
+class AIUsageItemOut(BaseModel):
+    id: int
+    created_at: datetime
+    agent: str
+    model: str
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    total_tokens: int | None = None
+    cost_usd: float | None = None
+    usage_available: bool
+    pricing_available: bool
+    status: str
+    user_name: str | None = None
+
+
+class AIAnalyticsOut(BaseModel):
+    period: dict
+    summary: dict
+    series: list[dict]
+    by_model: list[dict]
+    most_expensive: list[AIUsageItemOut]
+    history: list[AIUsageItemOut]
+    models: list[str]
+
+
 class AITestIn(BaseModel):
     agent: str = Field(pattern="^(narrator|expert)$")
 

@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
-from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from datetime import date, datetime, timedelta, timezone
+from fastapi import Depends, FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
@@ -7,9 +7,9 @@ from .ai import AIService, PORTRAIT_TOPICS
 from .auth import create_token, current_user, hash_password, manager_only, verify_password
 from .config import get_settings
 from .db import get_db
-from .models import Animal, Conversation, Favorite, Message, OwnerPortrait, Preference, PreferenceChange, Swipe, User
+from .models import AIModelPricing, AIUsageLog, Animal, Conversation, Favorite, Message, OwnerPortrait, Preference, PreferenceChange, Swipe, User
 from .realtime import events
-from .schemas import AISettingsIn, AISettingsOut, AccountUpdateIn, AnimalOut, ChatIn, ChatOut, ConversationOut, LoginIn, ManagerUserOut, MessageOut, PreferenceIn, PreferenceOut, PortraitStatusOut, PortraitTopic, RegisterIn, SwipeIn, TokenOut, UserOut
+from .schemas import AIPricingIn, AIPricingOut, AISettingsIn, AISettingsOut, AIAnalyticsOut, AccountUpdateIn, AnimalOut, ChatIn, ChatOut, ConversationOut, LoginIn, ManagerUserOut, MessageOut, PreferenceIn, PreferenceOut, PortraitStatusOut, PortraitTopic, RegisterIn, SwipeIn, TokenOut, UserOut
 from .secrets import encrypt_secret
 from .models import AISettingsRecord
 
@@ -25,6 +25,7 @@ def preference_dict(preference):
 
 
 TINDER_CARD_LIMIT = 6
+TOPIC_IDS = {topic[0] for topic in PORTRAIT_TOPICS}
 
 
 def explicit_pet_type(text: str) -> str | None:
@@ -49,8 +50,16 @@ def portrait_for(db: Session, user_id: int) -> OwnerPortrait:
     return portrait
 
 
+def covered_topics(portrait: OwnerPortrait) -> set[str]:
+    aliases = {
+        "time": "routine", "household": "home", "activity": "temperament",
+        "health": "care", "budget": "care", "expectations": "motivation", "boundaries": "support",
+    }
+    return {aliases.get(topic, topic) for topic in (portrait.covered_topics or []) if aliases.get(topic, topic) in TOPIC_IDS}
+
+
 def portrait_status(portrait: OwnerPortrait) -> PortraitStatusOut:
-    covered = set(portrait.covered_topics or [])
+    covered = covered_topics(portrait)
     next_topic = next((topic for topic in PORTRAIT_TOPICS if topic[0] not in covered), None)
     return PortraitStatusOut(
         completeness=portrait.completeness,
@@ -67,21 +76,14 @@ def answer_covers_topic(topic_id: str, text: str) -> bool:
     if any(marker in lower for marker in ("пропустить", "не хочу отвечать", "отвечу потом", "пока не знаю")):
         return True
     markers = {
-        "routine": ("будн", "выходн", "работ", "день"),
-        "time": ("час", "дома", "один", "отсутств"),
-        "home": ("квартир", "дом", "двор", "лестниц", "место"),
-        "household": ("семь", "жив", "дет", "пожил", "близк"),
+        "routine": ("будн", "выходн", "работ", "день", "час", "дома", "один", "отсутств"),
+        "home": ("квартир", "дом", "двор", "лестниц", "место", "семь", "жив", "дет", "пожил", "близк"),
         "animals": ("кот", "собак", "живот", "питом"),
         "experience": ("раньше", "опыт", "питом", "заботил"),
-        "temperament": ("спокой", "ласк", "энерг", "характер", "общител"),
-        "activity": ("гуля", "игр", "обуч", "занят", "прогул"),
-        "care": ("уход", "ветеринар", "корм", "режим", "обязан"),
-        "health": ("аллер", "здоров", "огранич", "медицин"),
-        "budget": ("руб", "расход", "бюджет", "стоим", "финанс"),
-        "motivation": ("хочу", "почему", "дать", "причин", "мечт"),
-        "expectations": ("ожида", "первые", "привык", "вместе", "представля"),
-        "boundaries": ("не готов", "сложн", "не хочу", "границ", "терпел"),
-        "support": ("помощ", "сосед", "родствен", "отпуск", "форс-мажор"),
+        "temperament": ("спокой", "ласк", "энерг", "характер", "общител", "гуля", "игр", "обуч", "занят", "прогул"),
+        "care": ("уход", "ветеринар", "корм", "режим", "обязан", "аллер", "здоров", "огранич", "медицин", "руб", "расход", "бюджет", "стоим", "финанс"),
+        "motivation": ("хочу", "почему", "дать", "причин", "мечт", "ожида", "первые", "привык", "вместе", "представля"),
+        "support": ("помощ", "сосед", "родствен", "отпуск", "форс-мажор", "не готов", "сложн", "не хочу", "границ", "терпел"),
     }
     return any(marker in lower for marker in markers.get(topic_id, ()))
 
@@ -123,7 +125,7 @@ def recommendation_query(db: Session, preference: Preference | None = None, port
 
 
 def interview_complete(portrait: OwnerPortrait) -> bool:
-    return len(set(portrait.covered_topics or [])) >= len(PORTRAIT_TOPICS)
+    return len(covered_topics(portrait)) >= len(PORTRAIT_TOPICS)
 
 
 @app.get("/api/health")
@@ -196,7 +198,7 @@ def manager_ai_flow(_: User = Depends(manager_only), db: Session = Depends(get_d
     assistant_message = next((message for message in messages if message.role == "assistant"), None)
     portrait = db.scalar(select(OwnerPortrait).where(OwnerPortrait.user_id == conversation.user_id))
     preference = db.scalar(select(Preference).where(Preference.user_id == conversation.user_id))
-    covered = set(portrait.covered_topics or []) if portrait else set()
+    covered = covered_topics(portrait) if portrait else set()
     labels = [topic[1] for topic in PORTRAIT_TOPICS if topic[0] in covered]
     return {"enabled": bool(record and record.enabled), "conversation_id": conversation.id, "user_name": conversation.user.name, "user_answer": user_message.content if user_message else None, "expert": {"covered_topics": labels[-5:], "facts": portrait.facts if portrait else {}, "summary": portrait.summary if portrait else None, "preferences": preference_dict(preference)}, "assistant_reply": assistant_message.content if assistant_message else None, "recommendation_ready": conversation.interview_complete}
 
@@ -284,11 +286,11 @@ async def chat(payload: ChatIn, user: User = Depends(current_user), db: Session 
     timestamp = datetime.now(timezone.utc).isoformat()
     await events.publish({"type": "user_message", "user_id": user.id, "conversation_id": conversation.id, "at": timestamp})
     await events.publish_user(user.id, {"type": "dialog_received", "stage": "received", "at": timestamp})
-    covered = set(portrait.covered_topics or [])
+    covered = covered_topics(portrait)
     topic = next((item for item in PORTRAIT_TOPICS if item[0] not in covered), PORTRAIT_TOPICS[-1])
     await events.publish({"type": "portrait_analysis_started", "user_id": user.id, "topic": topic[0], "at": datetime.now(timezone.utc).isoformat()})
     await events.publish_user(user.id, {"type": "portrait_analysis_started", "stage": "analysis", "topic": topic[1], "at": datetime.now(timezone.utc).isoformat()})
-    analyzed = await ai.analyze_portrait(payload.content, topic[0], {"facts": portrait.facts or {}, "covered_topics": list(covered)}, db=db)
+    analyzed = await ai.analyze_portrait(payload.content, topic[0], {"facts": portrait.facts or {}, "covered_topics": list(covered)}, db=db, user_id=user.id, conversation_id=conversation.id)
     await events.publish({"type": "expert_response", "user_id": user.id, "conversation_id": conversation.id, "answer": payload.content.strip(), "analysis": analyzed, "at": datetime.now(timezone.utc).isoformat()})
     extracted = {key: value for key, value in analyzed.get("preferences", {}).items() if key in {"pet_type", "rhythm", "home", "wishes"} and value}
     if explicit_type := explicit_pet_type(payload.content):
@@ -331,7 +333,7 @@ async def chat(payload: ChatIn, user: User = Depends(current_user), db: Session 
         await events.publish_user(user.id, {"type": "interview_complete", "stage": "recommendations", "at": datetime.now(timezone.utc).isoformat()})
         await events.publish_user(user.id, {"type": "recommendation_started", "stage": "recommendations", "at": datetime.now(timezone.utc).isoformat()})
     await events.publish({"type": "assistant_context", "user_id": user.id, "conversation_id": conversation.id, "preferences": preference_dict(preference), "next_question": next_topic[2] if next_topic else None, "catalog_names": [animal.name for animal in animals_for_reply[:3]], "at": datetime.now(timezone.utc).isoformat()})
-    reply = await ai.narrate(payload.content, preference_dict(preference), [{"name": animal.name} for animal in animals_for_reply], facts, next_topic, db=db)
+    reply = await ai.narrate(payload.content, preference_dict(preference), [{"name": animal.name} for animal in animals_for_reply], facts, next_topic, db=db, user_id=user.id, conversation_id=conversation.id)
     assistant_message = Message(conversation_id=conversation.id, role="assistant", content=reply)
     conversation.title = "Подбор питомца"
     db.add(assistant_message)
@@ -398,6 +400,114 @@ def tinder_swipe(animal_id: int, payload: SwipeIn, user: User = Depends(current_
 @app.get("/api/manager/overview")
 def manager_overview(_: User = Depends(manager_only), db: Session = Depends(get_db)):
     return {"users": db.scalar(select(func.count(User.id)).where(User.role == "USER")) or 0, "animals": db.scalar(select(func.count(Animal.id)).where(Animal.is_available.is_(True))) or 0, "conversations": db.scalar(select(func.count(Conversation.id))) or 0, "without_guardians": db.scalar(select(func.count(Animal.id)).where(Animal.guardians == "Пока без опекунов")) or 0}
+
+
+def usage_item(item: AIUsageLog, user_name: str | None = None) -> dict:
+    return {
+        "id": item.id,
+        "created_at": item.created_at,
+        "agent": item.agent,
+        "model": item.model,
+        "input_tokens": item.input_tokens,
+        "output_tokens": item.output_tokens,
+        "total_tokens": item.total_tokens,
+        "cost_usd": float(item.cost_usd) if item.cost_usd is not None else None,
+        "usage_available": item.usage_available,
+        "pricing_available": item.pricing_available,
+        "status": item.status,
+        "user_name": user_name,
+    }
+
+
+@app.get("/api/manager/ai-pricing", response_model=list[AIPricingOut])
+def get_ai_pricing(_: User = Depends(manager_only), db: Session = Depends(get_db)):
+    return list(db.scalars(select(AIModelPricing).order_by(AIModelPricing.model)))
+
+
+@app.put("/api/manager/ai-pricing", response_model=AIPricingOut)
+def update_ai_pricing(payload: AIPricingIn, _: User = Depends(manager_only), db: Session = Depends(get_db)):
+    model = payload.model.strip()
+    pricing = db.scalar(select(AIModelPricing).where(AIModelPricing.model == model))
+    if not pricing:
+        pricing = AIModelPricing(model=model)
+        db.add(pricing)
+    pricing.input_usd_per_million = payload.input_usd_per_million
+    pricing.output_usd_per_million = payload.output_usd_per_million
+    db.commit()
+    db.refresh(pricing)
+    return pricing
+
+
+@app.get("/api/manager/ai-analytics", response_model=AIAnalyticsOut)
+def ai_analytics(
+    start_date: date | None = None,
+    end_date: date | None = None,
+    model: str | None = None,
+    granularity: str = Query("day", pattern="^(day|week|month)$"),
+    _: User = Depends(manager_only),
+    db: Session = Depends(get_db),
+):
+    today = datetime.now(timezone.utc).date()
+    first = start_date or today - timedelta(days=29)
+    last = end_date or today
+    if last < first:
+        raise HTTPException(400, "Дата окончания не может быть раньше даты начала")
+    start = datetime(first.year, first.month, first.day, tzinfo=timezone.utc)
+    end = datetime(last.year, last.month, last.day, tzinfo=timezone.utc) + timedelta(days=1)
+    query = select(AIUsageLog).where(AIUsageLog.created_at >= start, AIUsageLog.created_at < end).order_by(AIUsageLog.created_at.desc())
+    if model:
+        query = query.where(AIUsageLog.model == model)
+    logs = list(db.scalars(query).limit(500))
+    user_ids = {item.user_id for item in logs if item.user_id is not None}
+    names = {user.id: user.name for user in db.scalars(select(User).where(User.id.in_(user_ids)))} if user_ids else {}
+    items = [usage_item(item, names.get(item.user_id)) for item in logs]
+    complete = [item for item in logs if item.usage_available and item.pricing_available]
+    total_input = sum(item.input_tokens or 0 for item in logs)
+    total_output = sum(item.output_tokens or 0 for item in logs)
+    total = sum(item.total_tokens or 0 for item in logs)
+    total_cost = sum(float(item.cost_usd or 0) for item in logs)
+
+    by_day: dict[str, dict] = {}
+    by_model: dict[str, dict] = {}
+    for item in logs:
+        item_date = item.created_at.date()
+        if granularity == "week":
+            monday = item_date - timedelta(days=item_date.weekday())
+            period_key = monday.isoformat()
+        elif granularity == "month":
+            period_key = item_date.replace(day=1).isoformat()
+        else:
+            period_key = item_date.isoformat()
+        day_row = by_day.setdefault(period_key, {"date": period_key, "requests": 0, "tokens": 0, "cost_usd": 0.0})
+        day_row["requests"] += 1
+        day_row["tokens"] += item.total_tokens or 0
+        day_row["cost_usd"] += float(item.cost_usd or 0)
+        model_row = by_model.setdefault(item.model, {"model": item.model, "requests": 0, "tokens": 0, "cost_usd": 0.0})
+        model_row["requests"] += 1
+        model_row["tokens"] += item.total_tokens or 0
+        model_row["cost_usd"] += float(item.cost_usd or 0)
+    series = list(reversed(sorted(by_day.values(), key=lambda row: row["date"])))
+    usage_models = set(db.scalars(select(AIUsageLog.model).distinct()))
+    priced_models = set(db.scalars(select(AIModelPricing.model)))
+    all_models = sorted(usage_models | priced_models)
+    return {
+        "period": {"start_date": first, "end_date": last},
+        "summary": {
+            "requests": len(logs),
+            "input_tokens": total_input,
+            "output_tokens": total_output,
+            "total_tokens": total,
+            "cost_usd": total_cost,
+            "average_cost_usd": total_cost / len(logs) if logs else 0,
+            "complete_requests": len(complete),
+            "incomplete_requests": len(logs) - len(complete),
+        },
+        "series": series,
+        "by_model": sorted(by_model.values(), key=lambda row: row["cost_usd"], reverse=True),
+        "most_expensive": sorted(items, key=lambda item: item["cost_usd"] or 0, reverse=True)[:10],
+        "history": items[:100],
+        "models": all_models,
+    }
 
 
 @app.get("/api/manager/ai-settings", response_model=AISettingsOut)
