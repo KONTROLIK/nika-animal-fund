@@ -65,7 +65,10 @@ export function TinderDeck({ notify, go }: Props) {
         <div>
           <article className="pc-card" style={{ transform: `translateX(${drag}px) rotate(${drag / 22}deg)` }} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp}>
             <figure>
-              <img src={animal.image_url} alt={`${animal.name}, ${animal.species}`} draggable={false} />
+              <img className="pc-card__backdrop" src={animal.image_url} alt="" aria-hidden="true" draggable={false} />
+              <div className="pc-card__image-frame">
+                <img className="pc-card__image" src={animal.image_url} alt={`${animal.name}, ${animal.species}`} draggable={false} />
+              </div>
               <div className="pc-card__top"><span>{animal.shelter}</span><span>{index + 1} / {animals.length}</span></div>
               <span className="pc-card__mark">{animal.guardians}</span>
               {drag > 30 && <span className="pc-stamp pc-stamp--like">Нравится</span>}
