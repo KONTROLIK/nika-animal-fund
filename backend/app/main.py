@@ -96,6 +96,17 @@ def new_conversation(db: Session, user: User):
     return conversation
 
 
+def reset_portrait(db: Session, user_id: int):
+    portrait = portrait_for(db, user_id)
+    portrait.facts = {}
+    portrait.answers = []
+    portrait.covered_topics = []
+    portrait.summary = None
+    portrait.question_index = 0
+    portrait.answer_count = 0
+    portrait.completeness = 0
+
+
 def recommendation_query(db: Session, preference: Preference | None = None, portrait: OwnerPortrait | None = None, limit: int = 6):
     animals = list(db.scalars(select(Animal).where(Animal.is_available.is_(True))))
     visible = preference_dict(preference) if preference else {}
@@ -254,6 +265,7 @@ def conversations(user: User = Depends(current_user), db: Session = Depends(get_
 
 @app.post("/api/conversations", response_model=ConversationOut, status_code=201)
 def create_conversation(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    reset_portrait(db, user.id)
     conversation = new_conversation(db, user)
     db.commit()
     db.refresh(conversation)
