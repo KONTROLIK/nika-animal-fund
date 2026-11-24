@@ -1,4 +1,4 @@
-﻿/* PET CONNECT on the fund's design system (ds.css + lk.css). Only what those files do not cover. */
+﻿/* Обзор кабинета поверх дизайн-системы фонда. */
 
 .pc-brand span{font-size:var(--fs-xs);color:var(--ink-3);letter-spacing:var(--ls-xs)}
 .pc-brand img{height:20px;width:auto;display:block}
@@ -179,6 +179,49 @@
 .pc-ai-table-wrap .pc-table{min-width:640px}
 .pc-incomplete{font-size:var(--fs-xs);color:var(--accent)}
 
+/* ── Обзор кабинета: спокойный порядок секций как в кабинете фонда ── */
+.overview{display:flex;flex-direction:column;gap:var(--s5)}
+.ov-welcome{padding:var(--s2) 0 0}
+.ov-welcome h1{margin:var(--s2) 0 0;font-weight:400;font-size:var(--fs-2xl);line-height:var(--lh-title);letter-spacing:var(--ls-2xl)}
+.ov-lead{margin:var(--s4) 0 0;max-width:52ch;font-size:var(--fs-m);line-height:var(--lh-text);color:var(--ink-2)}
+.ov-muted{margin:var(--s2) 0 0;font-size:var(--fs-xs);color:var(--ink-3)}
+.ov-total{margin-top:var(--s5);padding-top:var(--s4);border-top:1px solid var(--rule)}
+.ov-total span{display:block;font-size:var(--fs-s);color:var(--ink-2)}
+.ov-total b{display:block;margin-top:var(--s1);font-size:var(--fs-4xl);line-height:var(--lh-display);font-weight:400;letter-spacing:var(--ls-4xl)}
+.ov-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s4) var(--s6);margin-top:var(--s4);padding-top:var(--s4);border-top:1px solid var(--rule)}
+.ov-stats b{display:block;font-size:var(--fs-2xl);line-height:var(--lh-title);font-weight:400;letter-spacing:var(--ls-2xl)}
+.ov-stats span{display:block;margin-top:var(--s1);font-size:var(--fs-xs);line-height:var(--lh-ui);color:var(--ink-2)}
+.ov-alert{display:flex;align-items:center;justify-content:space-between;gap:var(--s4);padding:var(--s4);border-radius:var(--r-m);background:var(--surface);box-shadow:var(--sh-1)}
+.ov-alert>div{min-width:0}
+.ov-alert b{display:block;font-weight:400;font-size:var(--fs-m);letter-spacing:var(--ls-m)}
+.ov-alert p{margin:var(--s1) 0 0;font-size:var(--fs-xs);line-height:var(--lh-text);color:var(--ink-2)}
+.ov-alert .btn{flex:none}
+.ov-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s3)}
+.ov-actions button{display:flex;align-items:center;gap:var(--s3);min-width:0;min-height:var(--h-xl);padding:var(--s3);border:0;border-radius:var(--r-m);background:var(--surface);text-align:left;cursor:pointer;font:inherit;color:var(--ink);transition:transform var(--dur-2) var(--ease),background var(--dur-2) ease}
+.ov-actions button:hover{background:var(--surface-2);transform:translateY(-2px)}
+.ov-actions i{display:flex;align-items:center;justify-content:center;flex:none;width:var(--h-m);height:var(--h-m);border-radius:var(--r-round);background:var(--accent-soft);color:var(--accent);font-style:normal}
+.ov-actions span{min-width:0}
+.ov-actions b{display:block;font-size:var(--fs-s);font-weight:400;line-height:var(--lh-ui);letter-spacing:var(--ls-s)}
+.ov-actions small{display:block;margin-top:2px;font-size:var(--fs-xs);line-height:var(--lh-ui);color:var(--ink-3)}
+.ov-actions>button>svg{flex:none;margin-left:auto;color:var(--ink-3)}
+.ov-section{padding:var(--s4);border-radius:var(--r-m);background:var(--surface)}
+.ov-section__head{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);margin-bottom:var(--s3)}
+.ov-section__head h2{margin:0;font-size:var(--fs-l);font-weight:400;letter-spacing:var(--ls-l)}
+.ov-section__head button{display:inline-flex;align-items:center;gap:var(--s2);padding:0;border:0;background:none;cursor:pointer;font:inherit;font-size:var(--fs-xs);color:var(--ink-2)}
+.ov-section__head button:hover{color:var(--ink)}
+.ov-pets{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s3)}
+.ov-pets .pc-tile{min-width:0;padding:var(--s2);background:var(--paper)}
+.ov-pets .pc-tile:hover{background:var(--paper-2)}
+.ov-pets .pc-tile figure{margin-bottom:var(--s2);aspect-ratio:1.25/1}
+.ov-pets .pc-tile h3,.ov-pets .pc-tile p{padding:0}
+.ov-pets .pc-tile__acts{padding:var(--s3) 0 0}
+.ov-dialog-list,.ov-start{display:flex;align-items:center;justify-content:space-between;gap:var(--s4);padding:var(--s3);border-top:1px solid var(--rule)}
+.ov-dialog-list>div{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:var(--s2);align-items:center;font-size:var(--fs-s)}
+.ov-dialog-list small{grid-column:2;margin-top:2px;font-size:var(--fs-xs);color:var(--ink-3)}
+.ov-dot{width:9px;height:9px;border-radius:var(--r-round);background:var(--green)}
+.ov-start h3{margin:0;font-size:var(--fs-m);font-weight:400}
+.ov-start p{margin:var(--s1) 0 0;font-size:var(--fs-xs);color:var(--ink-2)}
+
 @media (max-width:1180px){
   .pc-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
   .pc-qa{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -195,6 +238,8 @@
   .pc-steps{grid-template-columns:minmax(0,1fr)}
   .pc-ai-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}
   .pc-ai-grid{grid-template-columns:minmax(0,1fr)}
+  .ov-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ov-pets{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media (max-width:760px){
   .pc-grid,.pc-grid--3{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -210,6 +255,28 @@
   .pc-ai-pricing{grid-template-columns:1fr 1fr}
   .pc-ai-pricing input:first-child{grid-column:1/-1}
   .pc-ai-pricing .btn{grid-column:1/-1}
+  .overview{gap:var(--s4)}
+  .ov-welcome{padding-top:0}
+  .ov-welcome h1{font-size:var(--fs-xl)}
+  .ov-lead{font-size:var(--fs-s)}
+  .ov-total{margin-top:var(--s4);padding-top:var(--s3)}
+  .ov-total b{font-size:var(--fs-3xl)}
+  .ov-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s4) var(--s3);margin-top:var(--s3);padding-top:var(--s3)}
+  .ov-stats b{font-size:var(--fs-xl)}
+  .ov-alert{align-items:stretch;flex-direction:column;padding:var(--s3)}
+  .ov-alert .btn{width:100%}
+  .ov-actions{gap:var(--s2)}
+  .ov-actions button{align-items:flex-start;min-height:92px;padding:var(--s3);flex-wrap:wrap}
+  .ov-actions i{width:var(--h-s);height:var(--h-s)}
+  .ov-actions span{flex:1;min-width:calc(100% - var(--h-s) - var(--s3))}
+  .ov-actions>button>svg{margin-left:auto}
+  .ov-pets{display:flex;gap:var(--s2);overflow-x:auto;margin:0 calc(-1 * var(--s4));padding:0 var(--s4) var(--s1);scroll-snap-type:x mandatory;scrollbar-width:none}
+  .ov-pets::-webkit-scrollbar{display:none}
+  .ov-pets .pc-tile{flex:0 0 calc((100% - var(--s2)) / 2.2);scroll-snap-align:start}
+  .ov-pets .pc-tile__acts{display:none}
+  .ov-section{padding:var(--s3)}
+  .ov-dialog-list,.ov-start{align-items:flex-start;flex-direction:column;padding:var(--s3) 0 0}
+  .ov-dialog-list .btn,.ov-start .btn{width:100%}
 }
 @media (max-width:480px){
   .pc-grid,.pc-grid--3{grid-template-columns:minmax(0,1fr)}

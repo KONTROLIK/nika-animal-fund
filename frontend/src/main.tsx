@@ -78,8 +78,8 @@ function App() {
 
   return <>
     <header className="hdr"><div className="hdr__in">
-      <a className="brand pc-brand" href="#" onClick={e => { e.preventDefault(); go('home') }} aria-label="PET CONNECT, на главную">
-        <img src={logo} alt="" /><span>PET CONNECT</span>
+      <a className="brand pc-brand" href="#" onClick={e => { e.preventDefault(); go('home') }} aria-label="Сайт фонда «Ника», на главную">
+        <img src={logo} alt="Фонд «Ника»" />
       </a>
       <div className="pc-top">
         <button className="hbtn menu-btn" type="button" aria-expanded={menuOpen} aria-controls="aside" aria-label="Разделы" onClick={() => setMenuOpen(!menuOpen)}>
@@ -118,7 +118,7 @@ function App() {
       <main className="main" id="main">
         <div id="view">{content}</div>
         <footer className="mfoot">
-          <span>© 2026 PET CONNECT · подбор питомцев фонда «НИКА»</span>
+          <span>© 2026 Благотворительный фонд помощи бездомным животным «НИКА»</span>
           <a href="https://fond-nika.ru/" target="_blank" rel="noreferrer">fond-nika.ru</a>
           <a href="mailto:info@fond-nika.ru">info@fond-nika.ru</a>
         </footer>
@@ -146,66 +146,47 @@ function Home({ go, user, notify }: { go: (route: Route) => void; user: User | n
   }, [user?.id])
 
   const completeness = portrait?.completeness || 0
+  const covered = portrait?.topics.filter(topic => topic.covered).length || 0
+  const firstName = user?.name.split(' ')[0] || 'друг'
 
-  return <section>
-    <div className="ov">
-      <div className="pc-hello">
-        <div className="hello">
-          <p className="lbl">Личный кабинет</p>
-          <h1>{user ? `Здравствуйте, ${user.name.split(' ')[0]}` : 'Новый друг начинается с разговора'}</h1>
-          <p className="pc-sub">{user
-            ? 'Продолжите знакомство с помощником — он подберёт подопечных фонда под ваш ритм жизни.'
-            : 'PET CONNECT помогает познакомиться с подопечными фонда «НИКА» без сложных анкет: просто расскажите о себе.'}</p>
-          <p className="pc-sub" style={{ color: 'var(--ink-3)', fontSize: 'var(--fs-xs)' }}>{user ? 'Прогресс и ответы сохраняются в вашем аккаунте.' : 'Начать можно с разговора или с каталога.'}</p>
-          <div className="pc-sum">
-            {user ? 'Собрано контекста' : 'Подопечных ждут дома'}
-            <b>{user ? `${completeness}%` : animals.length || '—'}</b>
-          </div>
-          <div className="pc-stats">
-            <div><b>{animals.length || '—'}</b><span>карточек в каталоге</span></div>
-            <div><b>{portrait?.answer_count || 0}</b><span>ответов в интервью</span></div>
-            <div><b>{user ? (portrait?.topics.length || 8) : '—'}</b><span>тем подбора</span></div>
-            <div><b>{user ? '6' : '—'}</b><span>карточек за раз</span></div>
-          </div>
-        </div>
-        <figure className="pc-hero-photo">
-          <figure>
-            <img src="https://nika-design.pages.dev/sayt-2/assets/sayt/bim.jpg" alt="Бим, подопечный фонда «НИКА»" />
-            <span className="pc-card__mark">ждёт своего человека</span>
-          </figure>
-          <figcaption><b>Бим · 7 лет</b><span>Центр «Мокрый нос»</span></figcaption>
-        </figure>
+  return <section className="overview">
+    <div className="ov-welcome">
+      <p className="lbl">Личный кабинет</p>
+      <h1>Здравствуйте, {firstName}</h1>
+      <p className="ov-lead">Подберём подопечного фонда, который подойдёт вашему ритму жизни.</p>
+      <p className="ov-muted">{user ? 'Ответы и прогресс сохраняются в вашем аккаунте.' : 'Войдите, чтобы сохранять ответы и избранных подопечных.'}</p>
+      <div className="ov-total">
+        <span>{user ? 'Прогресс знакомства' : 'Подопечных ждут дома'}</span>
+        <b>{user ? `${completeness}%` : animals.length || '—'}</b>
       </div>
-
-      <div className="pc-qa">
-        <button onClick={() => go('chat')}><i>{icon('M3.4 5.6a2.2 2.2 0 0 1 2.2-2.2h8.8a2.2 2.2 0 0 1 2.2 2.2v6a2.2 2.2 0 0 1-2.2 2.2H9.2l-3.6 2.9v-2.9h0a2.2 2.2 0 0 1-2.2-2.2z')}</i><span><b>Продолжить разговор</b><small>Помощник задаст следующий вопрос</small></span>{arrow()}</button>
-        <button onClick={() => go('tinder')}><i>{icon('M10 16.6s-6.4-3.8-6.4-8.4A3.5 3.5 0 0 1 10 6.1a3.5 3.5 0 0 1 6.4 2.1c0 4.6-6.4 8.4-6.4 8.4z')}</i><span><b>Выбор сердцами</b><small>Карточки по вашему интервью</small></span>{arrow()}</button>
-        <button onClick={() => go('discover')}><i>{icon('M10 10.6c-2.6 0-4.6 2.3-4.6 4.4 0 1.3 1 2 2.2 2 .9 0 1.5-.4 2.4-.4s1.5.4 2.4.4c1.2 0 2.2-.7 2.2-2 0-2.1-2-4.4-4.6-4.4z')}</i><span><b>Весь каталог</b><small>{animals.length || '—'} актуальных карточек фонда</small></span>{arrow()}</button>
-        <button onClick={() => go('profile')}><i>{icon('M10 7.4a3.2 3.2 0 1 0 0 .1M3.6 17.2c.9-3.3 3.4-5 6.4-5s5.5 1.7 6.4 5')}</i><span><b>Профиль и настройки</b><small>Предпочтения и избранное</small></span>{arrow()}</button>
-      </div>
-
-      {user && completeness > 0 && completeness < 100 && <div className="now">
-        <p className="st st--lg">Интервью пройдено на {completeness}%</p>
-        <p className="t">Осталось тем: {(portrait?.topics.length || 8) - (portrait?.topics.filter(topic => topic.covered).length || 0)}. После интервью откроются персональные карточки.</p>
-        <div className="bar"><i style={{ width: `${completeness}%` }} /></div>
-        <div className="acts"><button className="btn btn--fill btn--sm" onClick={() => go('chat')}>Продолжить разговор</button></div>
-      </div>}
-
-      <div>
-        <div className="sechead">
-          <h2 className="h2">Им нужна помощь сейчас</h2>
-          <button className="more" onClick={() => go('discover')}>Все подопечные {arrow()}</button>
-        </div>
-        <ul className="pc-grid">
-          {animals.slice(0, 4).map(animal => <AnimalTile key={animal.id} animal={animal} notify={notify} />)}
-        </ul>
-      </div>
-
-      <div className="pc-callout">
-        <div><h2>Познакомьтесь с теми, кто ждёт своего человека</h2><p>Расскажите о себе — и помощник сузит список до тех, кто действительно подойдёт.</p></div>
-        <button className="btn btn--light" onClick={() => go('chat')}>{user ? 'Продолжить разговор' : 'Начать разговор'}</button>
+      <div className="ov-stats">
+        <div><b>{animals.length || '—'}</b><span>подопечных в каталоге</span></div>
+        <div><b>{portrait?.answer_count || 0}</b><span>ответов в интервью</span></div>
+        <div><b>{user ? `${covered} из ${portrait?.topics.length || 8}` : '—'}</b><span>тем пройдено</span></div>
+        <div><b>{user ? '6' : '—'}</b><span>карточек в подборке</span></div>
       </div>
     </div>
+
+    {user && completeness < 100
+      ? <div className="ov-alert"><div><b>Подбор ещё не завершён</b><p>Осталось тем: {(portrait?.topics.length || 8) - covered}. Ответьте на несколько вопросов — так рекомендации будут точнее.</p></div><button className="btn btn--fill btn--sm" onClick={() => go('chat')}>Продолжить разговор</button></div>
+      : !user && <div className="ov-alert"><div><b>Начните знакомство с фондом</b><p>Помощник задаст несколько бережных вопросов и покажет подходящих подопечных.</p></div><button className="btn btn--fill btn--sm" onClick={() => go('auth')}>Войти или зарегистрироваться</button></div>}
+
+    <nav className="ov-actions" aria-label="Быстрые действия">
+      <button onClick={() => go('chat')}><i>{icon('M3.4 5.6a2.2 2.2 0 0 1 2.2-2.2h8.8a2.2 2.2 0 0 1 2.2 2.2v6a2.2 2.2 0 0 1-2.2 2.2H9.2l-3.6 2.9v-2.9a2.2 2.2 0 0 1-2.2-2.2z')}</i><span><b>Помощник</b><small>{user ? 'Продолжить подбор' : 'Начать знакомство'}</small></span>{arrow()}</button>
+      <button onClick={() => go('tinder')}><i>{icon('M10 16.6s-6.4-3.8-6.4-8.4A3.5 3.5 0 0 1 10 6.1a3.5 3.5 0 0 1 6.4 2.1c0 4.6-6.4 8.4-6.4 8.4z')}</i><span><b>Выбор сердцами</b><small>Отметить понравившихся</small></span>{arrow()}</button>
+      <button onClick={() => go('discover')}><i>{icon('M10 10.6c-2.6 0-4.6 2.3-4.6 4.4 0 1.3 1 2 2.2 2 .9 0 1.5-.4 2.4-.4s1.5.4 2.4.4c1.2 0 2.2-.7 2.2-2 0-2.1-2-4.4-4.6-4.4z')}</i><span><b>Мои подопечные</b><small>Все карточки фонда</small></span>{arrow()}</button>
+      <button onClick={() => go('profile')}><i>{icon('M10 7.4a3.2 3.2 0 1 0 0 .1M3.6 17.2c.9-3.3 3.4-5 6.4-5s5.5 1.7 6.4 5')}</i><span><b>Профиль и настройки</b><small>Данные и предпочтения</small></span>{arrow()}</button>
+    </nav>
+
+    <section className="ov-section">
+      <div className="ov-section__head"><h2>Мои подопечные</h2><button onClick={() => go('discover')}>Все подопечные {arrow()}</button></div>
+      <div className="ov-pets">{animals.slice(0, 5).map(animal => <AnimalTile key={animal.id} animal={animal} notify={notify} />)}</div>
+    </section>
+
+    <section className="ov-section ov-conversations">
+      <div className="ov-section__head"><h2>{user ? 'Последние диалоги' : 'Начните разговор'}</h2>{user && <button onClick={() => go('chat')}>Открыть помощника {arrow()}</button>}</div>
+      {user ? <div className="ov-dialog-list"><div><span className="ov-dot" />Помощник по подбору<small>{portrait?.answer_count ? `${portrait.answer_count} ответов сохранено` : 'Диалог ещё не начат'}</small></div><button className="btn btn--line btn--sm" onClick={() => go('chat')}>Открыть</button></div> : <div className="ov-start"><div><h3>Подбор начинается с разговора</h3><p>Расскажите о себе — помощник поможет сориентироваться среди подопечных фонда.</p></div><button className="btn btn--fill btn--sm" onClick={() => go('chat')}>Начать разговор</button></div>}
+    </section>
   </section>
 }
 
@@ -574,7 +555,7 @@ function Auth({ onSuccess }: { onSuccess: (result: { access_token: string; user:
   }
   return <div className="pc-auth">
     <form className="card" onSubmit={submit}>
-      <p className="lbl">PET CONNECT / {loginMode ? 'вход' : 'регистрация'}</p>
+      <p className="lbl">Личный кабинет / {loginMode ? 'вход' : 'регистрация'}</p>
       <h1>{loginMode ? 'С возвращением' : 'Найдём своего'}</h1>
       <p>{loginMode ? 'Продолжите подбор с того места, где остановились.' : 'Создайте профиль и сразу начните знакомство с помощником.'}</p>
       {!loginMode && <label>Имя<input className="inp" name="name" minLength={2} required placeholder="Например, Аня" /></label>}
