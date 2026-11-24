@@ -54,14 +54,9 @@ export function TinderDeck({ notify, go }: Props) {
   </section>
 
   const animal = animals[index]
-  return <section>
-    <div className="pc-hello" style={{ gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'end' }}>
-      <div><p className="lbl">Выбор сердцами</p><h1 className="h1">Кому сказать «да»?</h1><p className="sub">Карточки отсортированы по вашему интервью. Потяните карточку влево или вправо.</p></div>
-      <span className="chip">интервью завершено</span>
-    </div>
-
+  return <section className="pc-heart-choice">
     {animal
-      ? <div className="pc-deck" style={{ marginTop: 'var(--block)' }}>
+      ? <div className="pc-deck">
         <div>
           <article className="pc-card" style={{ transform: `translateX(${drag}px) rotate(${drag / 22}deg)` }} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp}>
             <figure>
@@ -86,24 +81,7 @@ export function TinderDeck({ notify, go }: Props) {
             <a className="pc-details" href={animal.source_url} target="_blank" rel="noreferrer" aria-label="Открыть карточку фонда">{deckIcon('M4 4h12v12H4zM7 7h6M7 10h6M7 13h3')}<span>Подробнее</span></a>
             <button className="pc-yes" onClick={() => decide('like')} aria-label="Добавить в избранное">{deckIcon('M10 17s-6-3.6-6-8a3.5 3.5 0 0 1 6-2.2A3.5 3.5 0 0 1 16 9c0 4.4-6 8-6 8z')}<span>Нравится</span></button>
           </div>
-          <div className="bar" style={{ marginTop: 'var(--s4)' }}><i style={{ width: `${Math.min(100, index / Math.max(animals.length, 1) * 100)}%` }} /></div>
-          <p className="hint">{index + 1} из {animals.length}</p>
         </div>
-
-        <aside className="pc-side">
-          <div className="card">
-            <p className="lbl">Что дальше</p>
-            <p className="hint" style={{ marginTop: 0 }}>Понравившиеся питомцы попадают в избранное в вашей анкете. Дальше — карточка фонда и связь с командой.</p>
-            <a className="btn btn--line btn--sm" style={{ marginTop: 'var(--s4)', width: '100%' }} href="https://fond-nika.ru/" target="_blank" rel="noreferrer">Сайт фонда</a>
-          </div>
-          <div className="card">
-            <p className="lbl">Портрет подбора</p>
-            <h2 className="h3">{portrait?.completeness || 0}%</h2>
-            <div className="bar"><i style={{ width: `${portrait?.completeness || 0}%` }} /></div>
-            <p className="hint">Ответов: {portrait?.answer_count || 0}</p>
-            <button className="btn btn--line btn--sm" style={{ width: '100%' }} onClick={() => go('chat')}>Вернуться к помощнику</button>
-          </div>
-        </aside>
       </div>
       : <div className="pc-empty" style={{ marginTop: 'var(--block)' }}>
         <h3>Карточки закончились</h3>
