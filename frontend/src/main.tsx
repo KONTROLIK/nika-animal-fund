@@ -8,18 +8,18 @@ import logo from './logo-nika.png'
 import { ProfileCabinet } from './ProfileCabinet'
 import { TinderDeck } from './TinderDeck'
 
-type Route = 'home' | 'discover' | 'chat' | 'tinder' | 'profile' | 'manager' | 'how' | 'auth'
+type Route = 'home' | 'discover' | 'catalog' | 'chat' | 'tinder' | 'regular' | 'profile' | 'manager' | 'auth'
 
 const icon = (d: string) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d={d} stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
 
 const nav: Array<[Route, React.ReactNode, string]> = [
   ['home', icon('M3 8.4 10 3l7 5.4V16a1.4 1.4 0 0 1-1.4 1.4h-3.2v-4.6H7.6v4.6H4.4A1.4 1.4 0 0 1 3 16z'), 'Обзор'],
   ['discover', icon('M10 10.6c-2.6 0-4.6 2.3-4.6 4.4 0 1.3 1 2 2.2 2 .9 0 1.5-.4 2.4-.4s1.5.4 2.4.4c1.2 0 2.2-.7 2.2-2 0-2.1-2-4.4-4.6-4.4zM4.6 8.6a1.5 1.9 0 1 0 0 .1M7.9 4.9a1.5 1.9 0 1 0 0 .1M12.1 4.9a1.5 1.9 0 1 0 0 .1M15.4 8.6a1.5 1.9 0 1 0 0 .1'), 'Мои подопечные'],
+  ['regular', icon('M10 17.2s-6.4-3.8-6.4-8.4A3.5 3.5 0 0 1 10 6.7a3.5 3.5 0 0 1 6.4 2.1c0 4.6-6.4 8.4-6.4 8.4z'), 'Регулярная помощь'],
   ['chat', icon('M3.4 5.6a2.2 2.2 0 0 1 2.2-2.2h8.8a2.2 2.2 0 0 1 2.2 2.2v6a2.2 2.2 0 0 1-2.2 2.2H9.2l-3.6 2.9v-2.9a2.2 2.2 0 0 1-2.2-2.2z'), 'Помощник'],
   ['tinder', icon('M10 16.6s-6.4-3.8-6.4-8.4A3.5 3.5 0 0 1 10 6.1a3.5 3.5 0 0 1 6.4 2.1c0 4.6-6.4 8.4-6.4 8.4z'), 'Выбор сердцами'],
   ['profile', icon('M10 7.4a3.2 3.2 0 1 0 0 .1M3.6 17.2c.9-3.3 3.4-5 6.4-5s5.5 1.7 6.4 5'), 'Профиль и настройки'],
   ['manager', icon('M3 4h14v4H3zM3 12h6v5H3zM12 12h5v5h-5z'), 'Менеджер'],
-  ['how', icon('M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM10 9v4M10 6.6v.1'), 'Как работает'],
 ]
 
 function App() {
@@ -64,17 +64,19 @@ function App() {
   }
 
   const visibleNav = nav.filter(([id]) => id !== 'manager' || user?.role === 'MANAGER')
-  const locked = !user && ['chat', 'profile', 'tinder', 'manager'].includes(route)
+  const locked = !user && ['discover', 'chat', 'profile', 'tinder', 'manager'].includes(route)
 
   const content = locked || route === 'auth'
     ? <Auth onSuccess={onAuth} />
     : route === 'home' ? <Home go={go} user={user} notify={notify} />
-    : route === 'discover' ? <Discover notify={notify} />
+    : route === 'discover' ? <MyPets go={go} notify={notify} />
+    : route === 'catalog' ? <Discover notify={notify} />
     : route === 'chat' ? <Chat conversation={conversation} conversations={conversations} setConversation={setConversation} onConversationCreated={addConversation} onConversationUpdated={updateConversation} notify={notify} go={go} />
     : route === 'profile' ? <ProfileCabinet user={user!} notify={notify} onUpdated={setUser} />
     : route === 'tinder' ? <TinderDeck notify={notify} go={go} />
+    : route === 'regular' ? <RegularHelp go={go} />
     : route === 'manager' ? <Manager notify={notify} />
-    : <How go={go} />
+    : <Home go={go} user={user} notify={notify} />
 
   return <>
     <header className="hdr"><div className="hdr__in">
@@ -105,7 +107,7 @@ function App() {
       <aside className="aside" id="aside" aria-label="Разделы">
         <nav className="snav" aria-label="Подбор питомца">
           <p className="snav__title">Подбор питомца</p>
-          {visibleNav.filter(([id]) => ['home', 'discover', 'chat', 'tinder', 'how'].includes(id)).map(([id, ico, label]) =>
+          {visibleNav.filter(([id]) => ['home', 'discover', 'regular', 'chat', 'tinder'].includes(id)).map(([id, ico, label]) =>
             <a key={id} href={`#${id}`} aria-current={route === id ? 'page' : undefined} onClick={e => { e.preventDefault(); go(id) }}>{ico}{label}</a>)}
         </nav>
         <nav className="snav" aria-label="Аккаунт">
@@ -138,11 +140,15 @@ function PageHead({ title, sub, action }: { title: string; sub?: string; action?
 
 function Home({ go, user, notify }: { go: (route: Route) => void; user: User | null; notify: (text: string) => void }) {
   const [animals, setAnimals] = useState<Animal[]>([])
+  const [favorites, setFavorites] = useState<Animal[]>([])
   const [portrait, setPortrait] = useState<PortraitStatus | null>(null)
 
   useEffect(() => {
     api.animals().then(setAnimals).catch(() => setAnimals([]))
-    if (user) api.portrait().then(setPortrait).catch(() => {})
+    if (user) {
+      api.portrait().then(setPortrait).catch(() => {})
+      api.favorites().then(setFavorites).catch(() => setFavorites([]))
+    } else setFavorites([])
   }, [user?.id])
 
   const completeness = portrait?.completeness || 0
@@ -179,8 +185,10 @@ function Home({ go, user, notify }: { go: (route: Route) => void; user: User | n
     </nav>
 
     <section className="ov-section">
-      <div className="ov-section__head"><h2>Мои подопечные</h2><button onClick={() => go('discover')}>Все подопечные {arrow()}</button></div>
-      <div className="ov-pets">{animals.slice(0, 5).map(animal => <AnimalTile key={animal.id} animal={animal} notify={notify} />)}</div>
+      <div className="ov-section__head"><h2>Мои подопечные</h2><button onClick={() => go(user ? 'discover' : 'catalog')}>{user ? 'Все выбранные' : 'Каталог фонда'} {arrow()}</button></div>
+      {user && favorites.length
+        ? <div className="ov-pets">{favorites.slice(0, 5).map(animal => <AnimalTile key={animal.id} animal={animal} saved notify={notify} onRemoved={() => setFavorites(items => items.filter(item => item.id !== animal.id))} />)}</div>
+        : <div className="ov-empty"><p>{user ? 'Здесь появятся подопечные, которых вы выберете сердцем.' : 'Войдите, чтобы сохранять понравившихся подопечных.'}</p><button className="btn btn--line btn--sm" onClick={() => go(user ? 'tinder' : 'auth')}>{user ? 'Выбрать сердцем' : 'Войти'}</button></div>}
     </section>
 
     <section className="ov-section ov-conversations">
@@ -192,10 +200,10 @@ function Home({ go, user, notify }: { go: (route: Route) => void; user: User | n
 
 function arrow() { return <svg width="16" height="12" viewBox="0 0 16 12" fill="none" aria-hidden="true"><path d="M1 6h13M9.5 1.5 14 6l-4.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg> }
 
-function AnimalTile({ animal, notify }: { animal: Animal; notify?: (text: string) => void }) {
-  const [saved, setSaved] = useState(false)
+function AnimalTile({ animal, saved: initialSaved = false, notify, onRemoved }: { animal: Animal; saved?: boolean; notify?: (text: string) => void; onRemoved?: () => void }) {
+  const [saved, setSaved] = useState(initialSaved)
   const toggle = async () => {
-    try { await api.favorite(animal.id, saved); setSaved(!saved); notify?.(saved ? 'Убрано из избранного' : `${animal.name} в избранном`) } catch { /* keep the previous state when the server rejects the change */ }
+    try { await api.favorite(animal.id, saved); setSaved(!saved); notify?.(saved ? 'Убрано из избранного' : `${animal.name} в избранном`); if (saved) onRemoved?.() } catch { /* keep the previous state when the server rejects the change */ }
   }
   return <li><article className="pc-tile">
     <figure>
@@ -210,6 +218,36 @@ function AnimalTile({ animal, notify }: { animal: Animal; notify?: (text: string
       {animal.shelter && <span className="st st--xs">{animal.shelter}</span>}
     </div>
   </article></li>
+}
+
+function MyPets({ go, notify }: { go: (route: Route) => void; notify: (text: string) => void }) {
+  const [favorites, setFavorites] = useState<Animal[]>([])
+
+  useEffect(() => { api.favorites().then(setFavorites).catch(error => notify(error.message)) }, [])
+
+  return <section>
+    <PageHead title="Мои подопечные" sub="Здесь сохраняются животные, которым вы поставили сердечко в подборе." action={<button className="btn btn--line btn--sm" onClick={() => go('tinder')}>Выбор сердцами</button>} />
+    {favorites.length
+      ? <ul className="pc-grid pc-grid--favorites">{favorites.map(animal => <AnimalTile key={animal.id} animal={animal} saved notify={notify} onRemoved={() => setFavorites(items => items.filter(item => item.id !== animal.id))} />)}</ul>
+      : <div className="pc-empty"><h3>Пока нет выбранных подопечных</h3><p>Откройте подбор и поставьте сердечко тем, с кем хочется познакомиться.</p><button className="btn btn--fill btn--sm" onClick={() => go('tinder')}>Открыть выбор сердцами</button></div>}
+    <button className="lnk pc-catalog-link" onClick={() => go('catalog')}>Посмотреть весь каталог</button>
+  </section>
+}
+
+function RegularHelp({ go }: { go: (route: Route) => void }) {
+  return <section>
+    <PageHead title="Регулярная помощь" sub="Поддержка фонда каждый месяц помогает заботиться о подопечных постоянно, а не только в экстренных случаях." />
+    <div className="regular-intro">
+      <div><p className="lbl">Помощь фонду</p><h2>Маленькая поддержка каждый месяц — большая помощь животным</h2><p>Регулярные пожертвования помогают фонду планировать лечение, корм и уход за подопечными заранее.</p></div>
+      <a className="btn btn--fill" href="https://fond-nika.ru/" target="_blank" rel="noreferrer">Поддержать фонд</a>
+    </div>
+    <div className="regular-steps">
+      <article><b>01</b><h3>Выберите сумму</h3><p>Определите комфортную сумму помощи на месяц.</p></article>
+      <article><b>02</b><h3>Оформите поддержку</h3><p>Перейдите на сайт фонда и выберите удобный способ пожертвования.</p></article>
+      <article><b>03</b><h3>Помогайте регулярно</h3><p>Фонд сможет рассчитывать на поддержку и заботиться о животных без перерывов.</p></article>
+    </div>
+    <div className="regular-note"><p className="lbl">Нужна помощь с выбором?</p><h3>Начните с разговора с помощником</h3><p>Он расскажет о подопечных и поможет выбрать, кому вы хотите помочь.</p><button className="btn btn--line btn--sm" onClick={() => go('chat')}>Открыть помощника</button></div>
+  </section>
 }
 
 function Discover({ notify }: { notify: (text: string) => void }) {
@@ -256,6 +294,7 @@ function Chat({ conversation, conversations, setConversation, onConversationCrea
   const [preference, setPreference] = useState<Preference | null>(null)
   const [portrait, setPortrait] = useState<PortraitStatus | null>(null)
   const [loading, setLoading] = useState(false)
+  const [showGuide, setShowGuide] = useState(() => localStorage.getItem('petconnect-chat-guide-seen') !== '1')
 
   useEffect(() => {
     if (!conversation) { setMessages([]); return }
@@ -303,6 +342,7 @@ function Chat({ conversation, conversations, setConversation, onConversationCrea
 
   const completeness = portrait?.completeness || 0
   const remaining = portrait?.topics.filter(topic => !topic.covered).length ?? (portrait?.topics.length || 8)
+  const closeGuide = () => { localStorage.setItem('petconnect-chat-guide-seen', '1'); setShowGuide(false) }
 
   return <section>
     <PageHead title="Помощник Ника" sub="Обычный разговор вместо анкеты: помощник задаёт по одному вопросу и собирает контекст для подбора." action={<button className="btn btn--line btn--sm" onClick={newChat}>Новый диалог</button>} />
@@ -364,6 +404,16 @@ function Chat({ conversation, conversations, setConversation, onConversationCrea
         </div>
       </aside>
     </div>
+    {showGuide && <div className="guide-backdrop" role="presentation">
+      <div className="guide" role="dialog" aria-modal="true" aria-labelledby="guide-title">
+        <button className="guide__close" type="button" aria-label="Закрыть инструкцию" onClick={closeGuide}>×</button>
+        <p className="lbl">Первый разговор</p>
+        <h2 id="guide-title">Как работает помощник</h2>
+        <p className="guide__lead">Это не анкета с правильными ответами. Просто расскажите о себе, а помощник задаст несколько вопросов и соберёт подходящую подборку.</p>
+        <ol><li><b>Расскажите о своём ритме жизни</b><span>Где вы живёте, сколько времени готовы уделять питомцу и кто ещё есть дома.</span></li><li><b>Ответьте в удобном темпе</b><span>Диалог сохраняется, его можно продолжить позже.</span></li><li><b>Выберите сердцем</b><span>После знакомства откроются карточки подопечных, которые подходят вашим ответам.</span></li></ol>
+        <button className="btn btn--fill" type="button" onClick={closeGuide}>Понятно, начать разговор</button>
+      </div>
+    </div>}
   </section>
 }
 
@@ -522,21 +572,6 @@ function AIAnalyticsPanel({ notify }: { notify: (text: string) => void }) {
 function AIUsageTable({ items, money }: { items: AIAnalytics['history']; money: (value: number | null | undefined) => string }) {
   if (!items.length) return <div className="pc-empty">Запросов с usage пока нет.</div>
   return <div className="pc-ai-table-wrap"><table className="pc-table"><thead><tr><th>Время / пользователь</th><th>Модель</th><th>Input</th><th>Output</th><th>Стоимость</th></tr></thead><tbody>{items.map(item => <tr key={item.id}><td>{new Date(item.created_at).toLocaleString()}<small>{item.user_name || 'системный запрос'} · {item.agent}</small></td><td>{item.model}</td><td>{item.input_tokens?.toLocaleString() || '—'}</td><td>{item.output_tokens?.toLocaleString() || '—'}</td><td>{item.cost_usd == null ? <span className="pc-incomplete">неполная статистика</span> : money(item.cost_usd)}</td></tr>)}</tbody></table></div>
-}
-
-function How({ go }: { go: (route: Route) => void }) {
-  return <section>
-    <PageHead title="Как работает подбор" sub="Сервис бережно собирает контекст разговора и соединяет его с актуальным каталогом фонда «НИКА»." />
-    <div className="pc-steps">
-      <article><b>01</b><h3>Познакомьтесь</h3><p>Расскажите помощнику о ритме жизни, доме и ожиданиях. Это разговор, а не анкета.</p></article>
-      <article><b>02</b><h3>Уточните важное</h3><p>Ответы сохраняются в анкете и портрете подбора. Их можно менять в любой момент.</p></article>
-      <article><b>03</b><h3>Выберите друга</h3><p>После интервью откроются карточки, отсортированные под вас, и «Выбор сердцем».</p></article>
-    </div>
-    <div className="pc-callout" style={{ marginTop: 'var(--block)' }}>
-      <div><h2>Готовы начать?</h2><p>Первый вопрос уже ждёт в диалоге с помощником.</p></div>
-      <button className="btn btn--light" onClick={() => go('chat')}>Начать разговор</button>
-    </div>
-  </section>
 }
 
 function Auth({ onSuccess }: { onSuccess: (result: { access_token: string; user: User; conversation: Conversation }) => void }) {

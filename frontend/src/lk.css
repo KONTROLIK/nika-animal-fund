@@ -725,6 +725,7 @@ body.is-auth .app,body.is-auth .hside{display:none}
     transition:opacity var(--dur-2) var(--ease),transform var(--dur-3) var(--ease),visibility 0s linear var(--dur-3)}
   body.menu-open .aside{opacity:1;visibility:visible;transform:none;transition:opacity var(--dur-2) var(--ease),transform var(--dur-3) var(--ease)}
   .menu-btn{display:inline-flex}
+  .menu-btn span{display:none}
   .main{padding-left:0}
 }
 /* ── планшет ── */
@@ -744,6 +745,7 @@ body.is-auth .app,body.is-auth .hside{display:none}
 /* ── телефон: баннер → показатели → подопечные и сбор → операции → материалы ── */
 @media (max-width:767px){
   .menu-btn{padding:0}
+  .menu-btn span{display:none}
   .menu-btn [data-cur]{display:none}
   .acc__btn{padding:0}
   .acc__btn svg{display:none}
