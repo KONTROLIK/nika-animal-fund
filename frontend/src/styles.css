@@ -139,7 +139,7 @@
 
 .pc-deck{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--gap-l);align-items:start}
 .pc-deck>div:first-child{width:min(100%,555px);margin-inline:auto}
-.pc-card{position:relative;border-radius:var(--r-l);overflow:hidden;background:var(--surface);box-shadow:0 18px 44px rgba(11,14,7,.12);touch-action:pan-y;user-select:none;cursor:grab;transition:transform .18s ease}
+.pc-card{position:relative;border-radius:var(--r-l);overflow:hidden;background:var(--surface);box-shadow:0 22px 56px rgba(11,14,7,.22);touch-action:pan-y;user-select:none;cursor:grab;transition:transform .18s ease}
 .pc-card:active{cursor:grabbing}
 .pc-card figure{position:relative;width:100%;aspect-ratio:1/1;margin:0;background:var(--placeholder);overflow:hidden}
 .pc-card figure img{display:block}
@@ -368,7 +368,7 @@
   .guide{padding:var(--s5) var(--s4) var(--s4)}
   .pc-deck{margin-left:calc(-1 * var(--pad));margin-right:calc(-1 * var(--pad))}
   .pc-deck>div:first-child{width:100%}
-  .pc-card{border-radius:var(--r-m);box-shadow:0 14px 34px rgba(11,14,7,.18)}
+  .pc-card{border-radius:var(--r-m);box-shadow:0 18px 42px rgba(11,14,7,.24)}
   .pc-card figure{height:auto;min-height:0}
   .pc-card__body{padding:var(--s12) var(--s4) 96px}
   .pc-card__body h2{font-size:var(--fs-2xl)}
