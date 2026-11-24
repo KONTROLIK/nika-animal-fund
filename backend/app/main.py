@@ -9,7 +9,7 @@ from .config import get_settings
 from .db import get_db
 from .models import AIModelPricing, AIUsageLog, Animal, Conversation, Favorite, Message, OwnerPortrait, Preference, PreferenceChange, Swipe, User
 from .realtime import events
-from .schemas import AIPricingIn, AIPricingOut, AISettingsIn, AISettingsOut, AIAnalyticsOut, AccountUpdateIn, AnimalOut, ChatIn, ChatOut, ConversationOut, LoginIn, ManagerUserOut, MessageOut, PreferenceIn, PreferenceOut, PortraitStatusOut, PortraitTopic, RegisterIn, SwipeIn, TokenOut, UserOut
+from .schemas import AIPricingIn, AIPricingOut, AISettingsIn, AISettingsOut, AIAnalyticsOut, AccountUpdateIn, AnimalOut, CardsAccessIn, ChatIn, ChatOut, ConversationOut, LoginIn, ManagerUserOut, MessageOut, PreferenceIn, PreferenceOut, PortraitStatusOut, PortraitTopic, RegisterIn, SwipeIn, TokenOut, UserOut
 from .secrets import encrypt_secret
 from .models import AISettingsRecord
 
@@ -384,7 +384,7 @@ def remove_favorite(animal_id: int, user: User = Depends(current_user), db: Sess
 @app.get("/api/tinder/next", response_model=list[AnimalOut])
 def tinder_next(user: User = Depends(current_user), db: Session = Depends(get_db)):
     portrait = portrait_for(db, user.id)
-    if not interview_complete(portrait):
+    if not user.cards_access and not interview_complete(portrait):
         raise HTTPException(409, "Сначала завершите интервью — после этого откроется подбор карточек")
     swiped = select(Swipe.animal_id).where(Swipe.user_id == user.id)
     ranked = recommendation_query(db, db.scalar(select(Preference).where(Preference.user_id == user.id)), portrait, limit=100)
@@ -394,7 +394,7 @@ def tinder_next(user: User = Depends(current_user), db: Session = Depends(get_db
 @app.post("/api/tinder/{animal_id}")
 def tinder_swipe(animal_id: int, payload: SwipeIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
     portrait = portrait_for(db, user.id)
-    if not interview_complete(portrait):
+    if not user.cards_access and not interview_complete(portrait):
         raise HTTPException(409, "Сначала завершите интервью — после этого откроется подбор карточек")
     if not db.get(Animal, animal_id):
         raise HTTPException(404, "Питомец не найден")
@@ -552,8 +552,19 @@ def update_ai_settings(payload: AISettingsIn, _: User = Depends(manager_only), d
 def manager_users(_: User = Depends(manager_only), db: Session = Depends(get_db)):
     result = []
     for user in db.scalars(select(User).where(User.role == "USER").order_by(User.created_at.desc())):
-        result.append(ManagerUserOut(id=user.id, name=user.name, email=user.email, role=user.role, created_at=user.created_at, preference=user.preference, favorite_count=db.scalar(select(func.count(Favorite.id)).where(Favorite.user_id == user.id)) or 0, conversation_count=db.scalar(select(func.count(Conversation.id)).where(Conversation.user_id == user.id)) or 0))
+        result.append(ManagerUserOut(id=user.id, name=user.name, email=user.email, role=user.role, cards_access=user.cards_access, created_at=user.created_at, preference=user.preference, favorite_count=db.scalar(select(func.count(Favorite.id)).where(Favorite.user_id == user.id)) or 0, conversation_count=db.scalar(select(func.count(Conversation.id)).where(Conversation.user_id == user.id)) or 0))
     return result
+
+
+@app.patch("/api/manager/users/{user_id}/cards-access", response_model=UserOut)
+def update_cards_access(user_id: int, payload: CardsAccessIn, _: User = Depends(manager_only), db: Session = Depends(get_db)):
+    user = db.get(User, user_id)
+    if not user or user.role != "USER":
+        raise HTTPException(404, "Пользователь не найден")
+    user.cards_access = payload.enabled
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 @app.get("/api/manager/users/{user_id}")
@@ -574,7 +585,7 @@ async def event_stream(websocket: WebSocket):
     try:
         from jose import jwt
         payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
-        if payload.get("role") != "MANAGER":
+        if payload.get("role") not in {"MANAGER", "ADMIN"}:
             await websocket.close(code=4403)
             return
     except Exception:

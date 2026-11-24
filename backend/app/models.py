@@ -17,6 +17,7 @@ class User(Base):
     avatar_url: Mapped[str | None] = mapped_column(Text)
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(20), default="USER", index=True)
+    cards_access: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     preference: Mapped["Preference | None"] = relationship(back_populates="user", uselist=False, cascade="all, delete-orphan")
     portrait: Mapped["OwnerPortrait | None"] = relationship(back_populates="user", uselist=False, cascade="all, delete-orphan")

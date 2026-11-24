@@ -14,6 +14,7 @@ class UserOut(BaseModel):
     contact_method: str | None = None
     avatar_url: str | None = None
     role: str
+    cards_access: bool = False
     created_at: datetime
 
 
@@ -185,6 +186,10 @@ class ManagerUserOut(UserOut):
     preference: PreferenceOut | None = None
     favorite_count: int = 0
     conversation_count: int = 0
+
+
+class CardsAccessIn(BaseModel):
+    enabled: bool
 
 
 class SwipeIn(BaseModel):

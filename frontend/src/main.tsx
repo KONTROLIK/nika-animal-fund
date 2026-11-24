@@ -36,7 +36,7 @@ function App() {
       const saved = await api.conversations()
       setConversations(saved)
       setConversation(saved[0] || null)
-      if (current.role === 'MANAGER') setRoute('manager')
+      if (current.role === 'MANAGER' || current.role === 'ADMIN') setRoute('manager')
     }).catch(() => setToken(null))
   }, [])
 
@@ -59,11 +59,11 @@ function App() {
     const saved = await api.conversations().catch(() => [result.conversation])
     setConversations(saved)
     setConversation(saved[0] || result.conversation)
-    go(result.user.role === 'MANAGER' ? 'manager' : 'chat')
+    go(result.user.role === 'MANAGER' || result.user.role === 'ADMIN' ? 'manager' : 'chat')
     notify('Добро пожаловать — знакомство начинается')
   }
 
-  const visibleNav = nav.filter(([id]) => id !== 'manager' || user?.role === 'MANAGER')
+  const visibleNav = nav.filter(([id]) => id !== 'manager' || user?.role === 'MANAGER' || user?.role === 'ADMIN')
   const locked = !user && ['discover', 'chat', 'profile', 'tinder', 'manager'].includes(route)
 
   const content = locked || route === 'auth'
@@ -73,7 +73,7 @@ function App() {
     : route === 'catalog' ? <Discover notify={notify} />
     : route === 'chat' ? <Chat conversation={conversation} onConversationCreated={addConversation} onConversationUpdated={updateConversation} notify={notify} go={go} />
     : route === 'profile' ? <ProfileCabinet user={user!} notify={notify} onUpdated={setUser} />
-    : route === 'tinder' ? <TinderDeck notify={notify} go={go} />
+    : route === 'tinder' ? <TinderDeck notify={notify} go={go} user={user!} />
     : route === 'regular' ? <RegularHelp go={go} />
     : route === 'manager' ? <Manager notify={notify} />
     : <Home go={go} user={user} notify={notify} />
@@ -425,6 +425,14 @@ function Manager({ notify }: { notify: (text: string) => void }) {
   const [apiKey, setApiKey] = useState('')
   const [trace, setTrace] = useState<Array<{ agent: string; title: string; content: string; at: string }>>([])
 
+  const setCardsAccess = async (person: User) => {
+    try {
+      const updated = await api.updateCardsAccess(person.id, !person.cards_access)
+      setUsers(items => items.map(item => item.id === updated.id ? { ...item, cards_access: updated.cards_access } : item))
+      notify(updated.cards_access ? `Карточки открыты для ${updated.name}` : `Доступ к карточкам закрыт для ${updated.name}`)
+    } catch (error) { notify((error as Error).message) }
+  }
+
   useEffect(() => {
     Promise.all([api.managerOverview(), api.managerUsers(), api.aiSettings()])
       .then(([stats, people, ai]) => { setOverview(stats); setUsers(people); setAiEnabled(ai.enabled); setHasKey(ai.has_api_key) })
@@ -486,13 +494,14 @@ function Manager({ notify }: { notify: (text: string) => void }) {
     <div className="card" style={{ marginTop: 'var(--s3)' }}>
       <div className="sechead"><h2 className="h2">Пользователи</h2><span className="st st--xs">{users.length}</span></div>
       <table className="pc-table">
-        <thead><tr><th>Пользователь</th><th>Роль</th><th>Диалогов</th><th>Избранное</th><th>Анкета</th></tr></thead>
+        <thead><tr><th>Пользователь</th><th>Роль</th><th>Диалогов</th><th>Избранное</th><th>Анкета</th><th>Карточки</th></tr></thead>
         <tbody>{users.map(person => <tr key={person.id}>
           <td><b>{person.name}</b><small>{person.email}</small></td>
           <td><span className="chip">{person.role}</span></td>
           <td>{person.conversation_count}</td>
           <td>{person.favorite_count}</td>
           <td>{person.preference?.pet_type || 'не заполнена'}</td>
+          <td><button className={`btn btn--sm ${person.cards_access ? 'btn--fill' : 'btn--line'}`} type="button" onClick={() => void setCardsAccess(person)}>{person.cards_access ? 'Открыты' : 'Открыть'}</button></td>
         </tr>)}</tbody>
       </table>
     </div>

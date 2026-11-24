@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import { api, type Animal, type PortraitStatus } from './api'
+import { api, type Animal, type PortraitStatus, type User } from './api'
 
-type Props = { notify: (message: string) => void; go: (route: 'chat') => void }
+type Props = { notify: (message: string) => void; go: (route: 'chat') => void; user: User }
 
 const deckIcon = (d: string) => <svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d={d} stroke="currentColor" strokeWidth="1.45" strokeLinecap="round" strokeLinejoin="round" /></svg>
 
-export function TinderDeck({ notify, go }: Props) {
+export function TinderDeck({ notify, go, user }: Props) {
   const [portrait, setPortrait] = useState<PortraitStatus | null>(null)
   const [animals, setAnimals] = useState<Animal[]>([])
   const [index, setIndex] = useState(0)
   const [drag, setDrag] = useState(0)
   const startX = useRef<number | null>(null)
-  const complete = (portrait?.completeness || 0) >= 100
+  const complete = user.cards_access || (portrait?.completeness || 0) >= 100
 
   useEffect(() => { api.portrait().then(setPortrait).catch(error => notify(error.message)) }, [])
 

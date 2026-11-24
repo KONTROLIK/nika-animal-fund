@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     manager_email: str = ""
     manager_password: str = ""
     manager_name: str = "Менеджер PET CONNECT"
+    admin_email: str = ""
+    admin_password: str = ""
+    admin_name: str = "Администратор фонда"
 
     @property
     def origins(self):

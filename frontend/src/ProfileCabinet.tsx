@@ -56,7 +56,7 @@ export function ProfileCabinet({ user, notify, onUpdated }: Props) {
           <p className="sub" style={{ marginTop: 'var(--s1)' }}>{user.email}</p>
         </div>
       </div>
-      <span className="chip">{user.role === 'MANAGER' ? 'Менеджер' : 'Пользователь'}</span>
+      <span className="chip">{user.role === 'ADMIN' ? 'Администратор' : user.role === 'MANAGER' ? 'Менеджер' : 'Пользователь'}</span>
     </div>
 
     <div className="pc-tabs" role="tablist">

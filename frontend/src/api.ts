@@ -1,4 +1,4 @@
-export type User = { id: number; name: string; email: string; phone: string | null; city: string | null; postal_code: string | null; address: string | null; contact_method: string | null; avatar_url: string | null; role: string; created_at: string }
+export type User = { id: number; name: string; email: string; phone: string | null; city: string | null; postal_code: string | null; address: string | null; contact_method: string | null; avatar_url: string | null; role: string; cards_access: boolean; created_at: string }
 export type Animal = { id: number; source_id: string; name: string; age: string; gender: string; species: string; breed: string | null; shelter: string; guardians: string; description: string | null; character: string | null; suitable_for: string | null; health: string | null; children_compatible: boolean | null; pets_compatible: boolean | null; image_url: string; source_url: string; gallery: string[]; is_available: boolean }
 export type Preference = { pet_type: string | null; rhythm: string | null; home: string | null; wishes: string | null; updated_at: string }
 export type PortraitTopic = { id: string; label: string; covered: boolean }
@@ -51,6 +51,7 @@ export const api = {
   swipe: (id: number, decision: 'like' | 'skip') => request(`/api/tinder/${id}`, { method: 'POST', body: JSON.stringify({ decision }) }),
   managerOverview: () => request<{ users: number; animals: number; conversations: number; without_guardians: number }>('/api/manager/overview'),
   managerUsers: () => request<Array<User & { preference: Preference | null; favorite_count: number; conversation_count: number }>>('/api/manager/users'),
+  updateCardsAccess: (id: number, enabled: boolean) => request<User>(`/api/manager/users/${id}/cards-access`, { method: 'PATCH', body: JSON.stringify({ enabled }) }),
   managerUser: (id: number) => request<ManagerDetails>(`/api/manager/users/${id}`),
   aiSettings: () => request<AISettings>('/api/manager/ai-settings'),
   updateAISettings: (body: { enabled: boolean; api_key?: string; clear_api_key?: boolean; base_url?: string }) => request<AISettings>('/api/manager/ai-settings', { method: 'PUT', body: JSON.stringify(body) }),

@@ -42,6 +42,6 @@ def current_user(credentials: HTTPAuthorizationCredentials | None = Depends(bear
 
 
 def manager_only(user: User = Depends(current_user)) -> User:
-    if user.role != "MANAGER":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Доступ только для менеджера")
+    if user.role not in {"MANAGER", "ADMIN"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Доступ только для менеджера или администратора")
     return user

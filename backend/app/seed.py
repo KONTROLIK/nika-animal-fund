@@ -40,6 +40,10 @@ def seed():
             manager = db.scalar(select(User).where(User.email == settings.manager_email.lower()))
             if not manager:
                 db.add(User(name=settings.manager_name, email=settings.manager_email.lower(), password_hash=hash_password(settings.manager_password), role="MANAGER"))
+        if settings.admin_email and settings.admin_password:
+            admin = db.scalar(select(User).where(User.email == settings.admin_email.lower()))
+            if not admin:
+                db.add(User(name=settings.admin_name, email=settings.admin_email.lower(), password_hash=hash_password(settings.admin_password), role="ADMIN"))
         if settings.ai_api_key:
             ai_record = db.scalar(select(AISettingsRecord).where(AISettingsRecord.id == 1))
             if not ai_record:
