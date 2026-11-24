@@ -66,9 +66,9 @@ export function TinderDeck({ notify, go, user }: Props) {
               </div>
               <div className="pc-card__top"><span>{animal.shelter}</span><span>{index + 1} / {animals.length}</span></div>
               <span className="pc-card__mark">{animal.guardians}</span>
-              {drag > 30 && <span className="pc-stamp pc-stamp--like">Нравится</span>}
-              {drag < -30 && <span className="pc-stamp pc-stamp--skip">Пропустить</span>}
             </figure>
+            {drag > 30 && <div className="pc-swipe-stamp pc-swipe-stamp--like">Нравится</div>}
+            {drag < -30 && <div className="pc-swipe-stamp pc-swipe-stamp--skip">Пропустить</div>}
             <div className="pc-card__body">
               <h2>{animal.name}</h2>
               <p className="pc-card__facts"><span>{animal.age}</span><span>{animal.gender}</span><span>{animal.species}</span></p>
