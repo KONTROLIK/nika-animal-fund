@@ -88,7 +88,7 @@
 
 .pc-chat{display:grid;grid-template-columns:minmax(0,1fr) clamp(260px,24vw,340px);gap:var(--gap-m);align-items:start}
 .pc-chat__main{display:flex;flex-direction:column;background:var(--surface);border-radius:var(--r-m);overflow:hidden;height:min(680px,calc(100svh - var(--hdr) - 160px))}
-.pc-chat--gpt{grid-template-columns:minmax(0,1fr) clamp(240px,22vw,300px);max-width:1180px;margin-inline:auto}
+.pc-chat--gpt{grid-template-columns:minmax(0,1fr);max-width:1180px;margin-inline:auto}
 .pc-chat--gpt .pc-chat__main{border:1px solid var(--rule);border-radius:var(--r-l);background:var(--surface);box-shadow:0 12px 36px rgba(11,14,7,.06);height:min(760px,calc(100svh - var(--hdr) - 48px))}
 .pc-chat__head{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);padding:var(--s4) var(--s5);border-bottom:1px solid var(--rule)}
 .pc-chat--gpt .pc-chat__head{padding:var(--s3) var(--s5);background:var(--surface)}

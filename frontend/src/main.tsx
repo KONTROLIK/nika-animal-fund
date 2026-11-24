@@ -71,7 +71,7 @@ function App() {
     : route === 'home' ? <Home go={go} user={user} notify={notify} />
     : route === 'discover' ? <MyPets go={go} notify={notify} />
     : route === 'catalog' ? <Discover notify={notify} />
-    : route === 'chat' ? <Chat conversation={conversation} conversations={conversations} setConversation={setConversation} onConversationCreated={addConversation} onConversationUpdated={updateConversation} notify={notify} go={go} />
+    : route === 'chat' ? <Chat conversation={conversation} onConversationCreated={addConversation} onConversationUpdated={updateConversation} notify={notify} go={go} />
     : route === 'profile' ? <ProfileCabinet user={user!} notify={notify} onUpdated={setUser} />
     : route === 'tinder' ? <TinderDeck notify={notify} go={go} />
     : route === 'regular' ? <RegularHelp go={go} />
@@ -284,14 +284,13 @@ function Discover({ notify }: { notify: (text: string) => void }) {
   </section>
 }
 
-function Chat({ conversation, conversations, setConversation, onConversationCreated, onConversationUpdated, notify, go }: {
-  conversation: Conversation | null; conversations: Conversation[]; setConversation: (c: Conversation | null) => void
+function Chat({ conversation, onConversationCreated, onConversationUpdated, notify, go }: {
+  conversation: Conversation | null
   onConversationCreated: (c: Conversation) => void; onConversationUpdated: (c: Conversation) => void
   notify: (text: string) => void; go: (route: Route) => void
 }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
-  const [preference, setPreference] = useState<Preference | null>(null)
   const [portrait, setPortrait] = useState<PortraitStatus | null>(null)
   const [loading, setLoading] = useState(false)
   const [showGuide, setShowGuide] = useState(() => localStorage.getItem('petconnect-chat-guide-seen') !== '1')
@@ -299,7 +298,6 @@ function Chat({ conversation, conversations, setConversation, onConversationCrea
   useEffect(() => {
     if (!conversation) { setMessages([]); return }
     api.messages(conversation.id).then(setMessages).catch(() => {})
-    api.profile().then(setPreference).catch(() => {})
     api.portrait().then(setPortrait).catch(() => {})
   }, [conversation?.id])
 
@@ -318,7 +316,7 @@ function Chat({ conversation, conversations, setConversation, onConversationCrea
   const newChat = async () => {
     try {
       const next = await api.newConversation()
-      onConversationCreated(next); setMessages([]); setPreference(null); setPortrait(null)
+       onConversationCreated(next); setMessages([]); setPortrait(null)
     } catch (error) { notify((error as Error).message) }
   }
 
@@ -332,8 +330,7 @@ function Chat({ conversation, conversations, setConversation, onConversationCrea
       if (conversation) onConversationUpdated(result.conversation)
       else onConversationCreated(result.conversation)
       setMessages(old => [...old, result.assistant_message])
-      setPreference(result.preference)
-      setPortrait(result.portrait)
+       setPortrait(result.portrait)
     } catch (error) {
       setMessages(old => old.filter(message => message.id !== optimistic.id))
       notify((error as Error).message)
@@ -382,29 +379,6 @@ function Chat({ conversation, conversations, setConversation, onConversationCrea
         </form>
       </div>
 
-      <aside className="pc-side">
-        <div className="card">
-          <p className="lbl">Контекст подбора</p>
-          <h2 className="h3">{completeness}% собрано</h2>
-          <p className="hint">Подробные ответы используются внутри подбора и не показываются целиком.</p>
-          <dl className="kv">
-            <div><dt>Ответов</dt><dd>{portrait?.answer_count || 0}</dd></div>
-            <div><dt>Ритм жизни</dt><dd>{preference?.rhythm || 'изучаем'}</dd></div>
-            <div><dt>Дом</dt><dd>{preference?.home || 'изучаем'}</dd></div>
-            <div><dt>Вид</dt><dd>{preference?.pet_type || 'изучаем'}</dd></div>
-          </dl>
-        </div>
-        <div className="card">
-          <p className="lbl">Диалоги</p>
-          <div className="pc-hist">
-            {conversations.map(item => <button key={item.id} className={conversation?.id === item.id ? 'is-on' : ''} onClick={() => setConversation(item)}>
-              {item.title || 'Первое знакомство'}
-              <small>{item.interview_complete ? 'интервью завершено' : 'сохранено'}</small>
-            </button>)}
-          </div>
-          <button className="btn btn--line btn--sm" style={{ width: '100%', marginTop: 'var(--s3)' }} onClick={go.bind(null, 'tinder')}>Выбор сердцами</button>
-        </div>
-      </aside>
     </div>
     {showGuide && <div className="guide-backdrop" role="presentation">
       <div className="guide" role="dialog" aria-modal="true" aria-labelledby="guide-title">
