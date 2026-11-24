@@ -114,6 +114,9 @@
 .pc-chat--gpt .pc-msg:not(.pc-msg--user){max-width:min(90%,720px)}
 .pc-chat--gpt .pc-msg:not(.pc-msg--user) small{color:var(--accent);font-weight:600}
 .pc-chat--gpt .pc-msg:not(.pc-msg--user) .pc-bubble{padding:0;background:transparent}
+.pc-chat--gpt .pc-bubble--typing{min-height:1.5em}
+.pc-typing-cursor{display:inline-block;width:2px;height:1.1em;margin-left:3px;vertical-align:-.15em;background:currentColor;animation:pc-cursor-blink 1s steps(2,end) infinite}
+@keyframes pc-cursor-blink{50%{opacity:0}}
 .pc-chat--gpt .pc-msg--user .pc-bubble{background:var(--surface-2);color:var(--ink);border:1px solid var(--rule);border-radius:var(--r-m);padding:var(--s3) var(--s4)}
 .pc-bubble--dim{color:var(--ink-3)}
 .pc-quick{display:flex;flex-wrap:wrap;gap:var(--s2);padding:0 var(--s5) var(--s3)}

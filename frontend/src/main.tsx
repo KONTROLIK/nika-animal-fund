@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react'
+﻿import React, { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { api, type AIAnalytics, type Animal, type Conversation, type Message, type PortraitStatus, type Preference, type User, setToken, token } from './api'
 import './ds.css'
@@ -293,13 +293,31 @@ function Chat({ conversation, onConversationCreated, onConversationUpdated, noti
   const [input, setInput] = useState('')
   const [portrait, setPortrait] = useState<PortraitStatus | null>(null)
   const [loading, setLoading] = useState(false)
+  const [typingId, setTypingId] = useState<number | null>(null)
+  const [typingText, setTypingText] = useState('')
+  const messagesRef = useRef<HTMLDivElement>(null)
   const [showGuide, setShowGuide] = useState(() => localStorage.getItem('petconnect-chat-guide-seen') !== '1')
 
   useEffect(() => {
     if (!conversation) { setMessages([]); return }
-    api.messages(conversation.id).then(setMessages).catch(() => {})
+    api.messages(conversation.id).then(messages => { setTypingId(null); setTypingText(''); setMessages(messages) }).catch(() => {})
     api.portrait().then(setPortrait).catch(() => {})
   }, [conversation?.id])
+
+  useEffect(() => {
+    if (typingId === null) return
+    const message = messages.find(item => item.id === typingId)
+    if (!message) return
+    if (typingText.length >= message.content.length) { setTypingId(null); return }
+    const step = Math.max(1, Math.ceil(message.content.length / 160))
+    const timer = window.setTimeout(() => setTypingText(message.content.slice(0, typingText.length + step)), 18)
+    return () => window.clearTimeout(timer)
+  }, [messages, typingId, typingText])
+
+  useEffect(() => {
+    const box = messagesRef.current
+    if (box) box.scrollTop = box.scrollHeight
+  }, [messages, typingText, loading])
 
   useEffect(() => {
     const current = token()
@@ -330,7 +348,9 @@ function Chat({ conversation, onConversationCreated, onConversationUpdated, noti
       if (conversation) onConversationUpdated(result.conversation)
       else onConversationCreated(result.conversation)
       setMessages(old => [...old, result.assistant_message])
-       setPortrait(result.portrait)
+      setTypingText('')
+      setTypingId(result.assistant_message.id)
+      setPortrait(result.portrait)
     } catch (error) {
       setMessages(old => old.filter(message => message.id !== optimistic.id))
       notify((error as Error).message)
@@ -355,11 +375,14 @@ function Chat({ conversation, onConversationCreated, onConversationUpdated, noti
           <div className="pc-progress__h"><span>Прогресс интервью</span><span>{completeness}%</span></div>
           <div className="pc-progress__t"><i style={{ width: `${completeness}%` }} /></div>
         </div>
-        <div className="pc-messages">
-          {messages.map(message => <div className={`pc-msg ${message.role === 'user' ? 'pc-msg--user' : ''}`} key={message.id}>
+        <div className="pc-messages" ref={messagesRef}>
+          {messages.map(message => {
+            const isTyping = message.id === typingId
+            const content = isTyping ? typingText : message.content
+            return <div className={`pc-msg ${message.role === 'user' ? 'pc-msg--user' : ''}`} key={message.id}>
             <small>{message.role === 'user' ? 'вы' : 'НИКА'}</small>
-            <div className="pc-bubble">{message.content}</div>
-          </div>)}
+            <div className={`pc-bubble${isTyping ? ' pc-bubble--typing' : ''}`}>{content}{isTyping && <span className="pc-typing-cursor" aria-hidden="true" />}</div>
+          </div>})}
           {loading && <div className="pc-msg"><small>НИКА</small><div className="pc-bubble pc-bubble--dim">Помощник готовит ответ…</div></div>}
           {conversation?.interview_complete && !loading && <div className="pc-done">
             <p className="lbl">Интервью завершено</p>
