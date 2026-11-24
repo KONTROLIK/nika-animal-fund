@@ -135,7 +135,7 @@
 .pc-stamp{position:absolute;top:var(--s6);padding:var(--s1) var(--s4);border:3px solid var(--accent);border-radius:var(--r-s);color:var(--accent);font-weight:700;font-size:var(--fs-l);letter-spacing:.08em;text-transform:uppercase;opacity:.95}
 .pc-stamp--like{right:var(--s6);transform:rotate(-10deg)}
 .pc-stamp--skip{left:var(--s6);transform:rotate(10deg);border-color:var(--ink-3);color:var(--ink-3)}
-.pc-card__body{position:absolute;z-index:2;left:0;right:0;bottom:0;padding:var(--s12) var(--card-pad) var(--s5);color:#fff;background:linear-gradient(180deg,transparent,rgba(11,14,7,.78))}
+.pc-card__body{position:absolute;z-index:2;left:0;right:0;bottom:0;padding:var(--s12) var(--card-pad) 110px;color:#fff;background:linear-gradient(180deg,transparent,rgba(11,14,7,.78))}
 .pc-card__body h2{margin:0;font-weight:400;font-size:var(--fs-3xl);line-height:var(--lh-display);letter-spacing:var(--ls-3xl)}
 .pc-card__body p{margin:var(--s2) 0 0;font-size:var(--fs-s);line-height:var(--lh-text);color:rgba(255,255,255,.86)}
 .pc-card__facts{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4)}
@@ -143,6 +143,7 @@
 .pc-card__description{max-width:50ch;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .pc-card__link{display:inline-flex;align-items:center;gap:var(--s2);margin-top:var(--s3);font-size:var(--fs-xs);color:#fff;text-decoration:underline;text-underline-offset:3px}
 .pc-swipe{display:flex;align-items:center;justify-content:center;gap:var(--s4);margin-top:var(--s4)}
+.pc-card__actions{position:absolute;z-index:3;left:0;right:0;bottom:var(--s4);margin:0;padding:0 var(--card-pad)}
 .pc-swipe button,.pc-details{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:var(--h-xl);height:var(--h-xl);border:1px solid var(--rule-2);border-radius:var(--r-round);cursor:pointer;font-size:22px;line-height:1}
 .pc-details{background:var(--surface);color:var(--ink-2);text-decoration:none}
 .pc-swipe span{font-size:10px;letter-spacing:var(--ls-xs);color:var(--ink-3)}
@@ -341,7 +342,7 @@
   .pc-deck>div:first-child{width:100%}
   .pc-card{border-radius:var(--r-m);box-shadow:0 14px 34px rgba(11,14,7,.18)}
   .pc-card figure{height:auto;min-height:0}
-  .pc-card__body{padding:var(--s12) var(--s4) var(--s5)}
+  .pc-card__body{padding:var(--s12) var(--s4) 96px}
   .pc-card__body h2{font-size:var(--fs-2xl)}
   .pc-card__description{display:none}
   .pc-card__link{margin-top:var(--s2)}

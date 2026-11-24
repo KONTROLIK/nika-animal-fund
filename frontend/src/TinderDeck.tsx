@@ -75,12 +75,12 @@ export function TinderDeck({ notify, go }: Props) {
               <p className="pc-card__description">{animal.description?.split('\n')[0] || 'Актуальная информация опубликована фондом.'}</p>
               <a className="pc-card__link" href={animal.source_url} target="_blank" rel="noreferrer">Открыть карточку фонда {deckIcon('M4 10h11M10 5l5 5-5 5')}</a>
             </div>
+            <div className="pc-swipe pc-card__actions">
+              <button className="pc-no" onPointerDown={event => event.stopPropagation()} onClick={() => decide('skip')} aria-label="Пропустить">{deckIcon('M5 5l10 10M15 5 5 15')}<span>Пропустить</span></button>
+              <a className="pc-details" onPointerDown={event => event.stopPropagation()} href={animal.source_url} target="_blank" rel="noreferrer" aria-label="Открыть карточку фонда">{deckIcon('M4 4h12v12H4zM7 7h6M7 10h6M7 13h3')}<span>Подробнее</span></a>
+              <button className="pc-yes" onPointerDown={event => event.stopPropagation()} onClick={() => decide('like')} aria-label="Добавить в избранное">{deckIcon('M10 17s-6-3.6-6-8a3.5 3.5 0 0 1 6-2.2A3.5 3.5 0 0 1 16 9c0 4.4-6 8-6 8z')}<span>Нравится</span></button>
+            </div>
           </article>
-          <div className="pc-swipe">
-            <button className="pc-no" onClick={() => decide('skip')} aria-label="Пропустить">{deckIcon('M5 5l10 10M15 5 5 15')}<span>Пропустить</span></button>
-            <a className="pc-details" href={animal.source_url} target="_blank" rel="noreferrer" aria-label="Открыть карточку фонда">{deckIcon('M4 4h12v12H4zM7 7h6M7 10h6M7 13h3')}<span>Подробнее</span></a>
-            <button className="pc-yes" onClick={() => decide('like')} aria-label="Добавить в избранное">{deckIcon('M10 17s-6-3.6-6-8a3.5 3.5 0 0 1 6-2.2A3.5 3.5 0 0 1 16 9c0 4.4-6 8-6 8z')}<span>Нравится</span></button>
-          </div>
         </div>
       </div>
       : <div className="pc-empty" style={{ marginTop: 'var(--block)' }}>
