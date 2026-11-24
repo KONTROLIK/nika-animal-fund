@@ -151,7 +151,7 @@
 .pc-card__top{position:absolute;z-index:1;left:var(--s4);right:var(--s4);top:var(--s4);display:flex;justify-content:space-between;gap:var(--s3);font-size:var(--fs-xs);color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.45)}
 .pc-card__top span:first-child{max-width:65%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pc-card__mark{position:absolute;z-index:1;left:var(--s4);bottom:var(--s4);padding:var(--s1) var(--s3);border-radius:var(--r-pill);background:rgba(255,255,255,.88);box-shadow:var(--sh-1);font-size:var(--fs-xs);color:var(--ink)}
-.pc-stamp{position:absolute;top:var(--s6);padding:var(--s1) var(--s4);border:3px solid var(--accent);border-radius:var(--r-s);color:var(--accent);font-weight:700;font-size:var(--fs-l);letter-spacing:.08em;text-transform:uppercase;opacity:.95}
+.pc-stamp{position:absolute;z-index:3;top:var(--s6);padding:var(--s1) var(--s4);border:3px solid var(--accent);border-radius:var(--r-s);color:var(--accent);font-weight:700;font-size:var(--fs-l);letter-spacing:.08em;text-transform:uppercase;opacity:.95;pointer-events:none}
 .pc-stamp--like{right:var(--s6);transform:rotate(-10deg)}
 .pc-stamp--skip{left:var(--s6);transform:rotate(10deg);border-color:var(--ink-3);color:var(--ink-3)}
 .pc-card__body{position:absolute;z-index:2;left:0;right:0;bottom:0;padding:var(--s12) var(--card-pad) 110px;color:#fff;background:linear-gradient(180deg,transparent,rgba(11,14,7,.78))}
