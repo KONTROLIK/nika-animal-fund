@@ -55,6 +55,7 @@
 .aside{position:sticky;top:var(--hdr);align-self:start;height:calc(100svh - var(--hdr));overflow:auto;
   display:flex;flex-direction:column;margin-left:calc(-1 * var(--s3));padding:var(--block) var(--s4) var(--s5) 0}
 .snav{display:flex;flex-direction:column;gap:2px}
+.snav__title{margin:0 0 var(--s1) var(--s3);font-size:var(--fs-xs);line-height:var(--lh-ui);color:var(--ink-3);letter-spacing:var(--ls-s);text-transform:uppercase}
 .snav + .snav{margin-top:var(--s4);padding-top:var(--s3);border-top:1px solid var(--rule)}
 .snav a{display:flex;align-items:center;gap:var(--s3);min-height:var(--h-m);padding:var(--s2) var(--s3);border-radius:var(--r-pill);
   font-size:var(--fs-m);line-height:var(--lh-snug);letter-spacing:var(--ls-m);color:var(--ink-2);transition:color var(--dur-1) ease}

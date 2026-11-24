@@ -457,7 +457,7 @@ def ai_analytics(
     query = select(AIUsageLog).where(AIUsageLog.created_at >= start, AIUsageLog.created_at < end).order_by(AIUsageLog.created_at.desc())
     if model:
         query = query.where(AIUsageLog.model == model)
-    logs = list(db.scalars(query).limit(500))
+    logs = list(db.scalars(query.limit(500)))
     user_ids = {item.user_id for item in logs if item.user_id is not None}
     names = {user.id: user.name for user in db.scalars(select(User).where(User.id.in_(user_ids)))} if user_ids else {}
     items = [usage_item(item, names.get(item.user_id)) for item in logs]

@@ -39,7 +39,7 @@ export function TinderDeck({ notify, go }: Props) {
 
   if (!complete) return <section>
     <div className="pc-hello" style={{ gridTemplateColumns: 'minmax(0,1fr)' }}>
-      <div><p className="lbl">Выбор сердцем</p><h1 className="h1">Сначала интервью</h1><p className="sub">После разговора с помощником здесь откроются персональные карточки питомцев.</p></div>
+      <div><p className="lbl">Выбор сердцами</p><h1 className="h1">Сначала интервью</h1><p className="sub">После разговора с помощником здесь откроются персональные карточки питомцев.</p></div>
     </div>
     <div className="nodata" style={{ marginTop: 'var(--block)' }}>
       <span />
@@ -54,7 +54,7 @@ export function TinderDeck({ notify, go }: Props) {
   const animal = animals[index]
   return <section>
     <div className="pc-hello" style={{ gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'end' }}>
-      <div><p className="lbl">Выбор сердцем</p><h1 className="h1">Кому сказать «да»?</h1><p className="sub">Карточки отсортированы по вашему интервью. Потяните карточку влево или вправо.</p></div>
+      <div><p className="lbl">Выбор сердцами</p><h1 className="h1">Кому сказать «да»?</h1><p className="sub">Карточки отсортированы по вашему интервью. Потяните карточку влево или вправо.</p></div>
       <span className="chip">интервью завершено</span>
     </div>
 

@@ -8,6 +8,9 @@ from .config import get_settings
 from .models import AIModelPricing, AISettingsRecord, AIUsageLog
 from .secrets import decrypt_secret
 
+# общий пул соединений: SSL/TLS и keep-alive переиспользуются между запросами
+_client = httpx.AsyncClient(timeout=45, limits=httpx.Limits(max_connections=20, max_keepalive_connections=10))
+
 
 EXPERT_SYSTEM_PROMPT = """
 Ты — внутренний аналитик сервиса подбора питомца. Твоя задача — аккуратно извлекать факты из ответа пользователя для приватного портрета владельца и видимых предпочтений.
@@ -107,40 +110,43 @@ class AIService:
             return None
         return key, base_url, model
 
-    async def complete(self, messages: list[dict], temperature: float = 0.4, db: Session | None = None, agent: str = "narrator", user_id: int | None = None, conversation_id: int | None = None) -> Completion | None:
+    async def complete(self, messages: list[dict], temperature: float = 0.4, db: Session | None = None, agent: str = "narrator", user_id: int | None = None, conversation_id: int | None = None, max_tokens: int | None = None) -> Completion | None:
         runtime = self.runtime(db, agent)
         if not runtime:
             return None
         key, base_url, model = runtime
         log = AIUsageLog(user_id=user_id, conversation_id=conversation_id, agent=agent, model=model, status="error") if db is not None else None
         try:
-            async with httpx.AsyncClient(timeout=45) as client:
-                response = await client.post(
-                    f"{base_url.rstrip('/')}/chat/completions",
-                    headers={"Authorization": f"Bearer {key}"},
-                    json={"model": model, "messages": messages, "temperature": temperature},
-                )
-                response.raise_for_status()
-                body = response.json()
-                usage = body.get("usage") or {}
-                input_tokens = usage.get("prompt_tokens", usage.get("input_tokens"))
-                output_tokens = usage.get("completion_tokens", usage.get("output_tokens"))
-                total_tokens = usage.get("total_tokens")
-                if total_tokens is None and input_tokens is not None and output_tokens is not None:
-                    total_tokens = input_tokens + output_tokens
-                if log is not None:
-                    pricing = db.scalar(select(AIModelPricing).where(AIModelPricing.model == model))
-                    log.input_tokens = input_tokens
-                    log.output_tokens = output_tokens
-                    log.total_tokens = total_tokens
-                    log.usage_available = input_tokens is not None and output_tokens is not None
-                    log.pricing_available = pricing is not None
-                    if log.usage_available and pricing:
-                        log.cost_usd = (input_tokens * float(pricing.input_usd_per_million) + output_tokens * float(pricing.output_usd_per_million)) / 1_000_000
-                    log.status = "success"
-                    db.add(log)
-                    db.flush()
-                return Completion(body["choices"][0]["message"]["content"], model, input_tokens, output_tokens, total_tokens, log.usage_available if log else input_tokens is not None and output_tokens is not None)
+            # один общий клиент: переиспользует соединение и TLS, вместо нового хендшейка на каждый запрос
+            payload = {"model": model, "messages": messages, "temperature": temperature}
+            if max_tokens is not None:
+                payload["max_tokens"] = max_tokens
+            response = await _client.post(
+                f"{base_url.rstrip('/')}/chat/completions",
+                headers={"Authorization": f"Bearer {key}"},
+                json=payload,
+            )
+            response.raise_for_status()
+            body = response.json()
+            usage = body.get("usage") or {}
+            input_tokens = usage.get("prompt_tokens", usage.get("input_tokens"))
+            output_tokens = usage.get("completion_tokens", usage.get("output_tokens"))
+            total_tokens = usage.get("total_tokens")
+            if total_tokens is None and input_tokens is not None and output_tokens is not None:
+                total_tokens = input_tokens + output_tokens
+            if log is not None:
+                pricing = db.scalar(select(AIModelPricing).where(AIModelPricing.model == model))
+                log.input_tokens = input_tokens
+                log.output_tokens = output_tokens
+                log.total_tokens = total_tokens
+                log.usage_available = input_tokens is not None and output_tokens is not None
+                log.pricing_available = pricing is not None
+                if log.usage_available and pricing:
+                    log.cost_usd = (input_tokens * float(pricing.input_usd_per_million) + output_tokens * float(pricing.output_usd_per_million)) / 1_000_000
+                log.status = "success"
+                db.add(log)
+                db.flush()
+            return Completion(body["choices"][0]["message"]["content"], model, input_tokens, output_tokens, total_tokens, log.usage_available if log else input_tokens is not None and output_tokens is not None)
         except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as error:
             if log is not None:
                 log.error_message = str(error)[:1000]
@@ -227,7 +233,7 @@ class AIService:
         raw = await self.complete([
             {"role": "system", "content": NARRATOR_SYSTEM_PROMPT},
             {"role": "user", "content": json.dumps({"visible_preferences": preference, "private_portrait": portrait or {}, "catalog_names": names, "user_message": text, "next_question": next_question}, ensure_ascii=False)},
-        ], temperature=0.7, db=db, agent="narrator", user_id=user_id, conversation_id=conversation_id)
+        ], temperature=0.7, db=db, agent="narrator", user_id=user_id, conversation_id=conversation_id, max_tokens=300)
         if raw:
             return raw.text.strip()
         return f"Спасибо, это важно. {next_question}"

@@ -14,10 +14,10 @@ const icon = (d: string) => <svg width="20" height="20" viewBox="0 0 20 20" fill
 
 const nav: Array<[Route, React.ReactNode, string]> = [
   ['home', icon('M3 8.4 10 3l7 5.4V16a1.4 1.4 0 0 1-1.4 1.4h-3.2v-4.6H7.6v4.6H4.4A1.4 1.4 0 0 1 3 16z'), 'Обзор'],
-  ['discover', icon('M10 10.6c-2.6 0-4.6 2.3-4.6 4.4 0 1.3 1 2 2.2 2 .9 0 1.5-.4 2.4-.4s1.5.4 2.4.4c1.2 0 2.2-.7 2.2-2 0-2.1-2-4.4-4.6-4.4zM4.6 8.6a1.5 1.9 0 1 0 0 .1M7.9 4.9a1.5 1.9 0 1 0 0 .1M12.1 4.9a1.5 1.9 0 1 0 0 .1M15.4 8.6a1.5 1.9 0 1 0 0 .1'), 'Подопечные'],
+  ['discover', icon('M10 10.6c-2.6 0-4.6 2.3-4.6 4.4 0 1.3 1 2 2.2 2 .9 0 1.5-.4 2.4-.4s1.5.4 2.4.4c1.2 0 2.2-.7 2.2-2 0-2.1-2-4.4-4.6-4.4zM4.6 8.6a1.5 1.9 0 1 0 0 .1M7.9 4.9a1.5 1.9 0 1 0 0 .1M12.1 4.9a1.5 1.9 0 1 0 0 .1M15.4 8.6a1.5 1.9 0 1 0 0 .1'), 'Мои подопечные'],
   ['chat', icon('M3.4 5.6a2.2 2.2 0 0 1 2.2-2.2h8.8a2.2 2.2 0 0 1 2.2 2.2v6a2.2 2.2 0 0 1-2.2 2.2H9.2l-3.6 2.9v-2.9a2.2 2.2 0 0 1-2.2-2.2z'), 'Помощник'],
-  ['tinder', icon('M10 16.6s-6.4-3.8-6.4-8.4A3.5 3.5 0 0 1 10 6.1a3.5 3.5 0 0 1 6.4 2.1c0 4.6-6.4 8.4-6.4 8.4z'), 'Выбор сердцем'],
-  ['profile', icon('M10 7.4a3.2 3.2 0 1 0 0 .1M3.6 17.2c.9-3.3 3.4-5 6.4-5s5.5 1.7 6.4 5'), 'Моя анкета'],
+  ['tinder', icon('M10 16.6s-6.4-3.8-6.4-8.4A3.5 3.5 0 0 1 10 6.1a3.5 3.5 0 0 1 6.4 2.1c0 4.6-6.4 8.4-6.4 8.4z'), 'Выбор сердцами'],
+  ['profile', icon('M10 7.4a3.2 3.2 0 1 0 0 .1M3.6 17.2c.9-3.3 3.4-5 6.4-5s5.5 1.7 6.4 5'), 'Профиль и настройки'],
   ['manager', icon('M3 4h14v4H3zM3 12h6v5H3zM12 12h5v5h-5z'), 'Менеджер'],
   ['how', icon('M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM10 9v4M10 6.6v.1'), 'Как работает'],
 ]
@@ -103,11 +103,13 @@ function App() {
 
     <div className="app">
       <aside className="aside" id="aside" aria-label="Разделы">
-        <nav className="snav" aria-label="Помощник и подбор">
+        <nav className="snav" aria-label="Подбор питомца">
+          <p className="snav__title">Подбор питомца</p>
           {visibleNav.filter(([id]) => ['home', 'discover', 'chat', 'tinder', 'how'].includes(id)).map(([id, ico, label]) =>
             <a key={id} href={`#${id}`} aria-current={route === id ? 'page' : undefined} onClick={e => { e.preventDefault(); go(id) }}>{ico}{label}</a>)}
         </nav>
         <nav className="snav" aria-label="Аккаунт">
+          <p className="snav__title">Аккаунт</p>
           {visibleNav.filter(([id]) => ['profile', 'manager'].includes(id)).map(([id, ico, label]) =>
             <a key={id} href={`#${id}`} aria-current={route === id ? 'page' : undefined} onClick={e => { e.preventDefault(); go(id) }}>{ico}{label}</a>)}
         </nav>
@@ -177,9 +179,9 @@ function Home({ go, user, notify }: { go: (route: Route) => void; user: User | n
 
       <div className="pc-qa">
         <button onClick={() => go('chat')}><i>{icon('M3.4 5.6a2.2 2.2 0 0 1 2.2-2.2h8.8a2.2 2.2 0 0 1 2.2 2.2v6a2.2 2.2 0 0 1-2.2 2.2H9.2l-3.6 2.9v-2.9h0a2.2 2.2 0 0 1-2.2-2.2z')}</i><span><b>Продолжить разговор</b><small>Помощник задаст следующий вопрос</small></span>{arrow()}</button>
-        <button onClick={() => go('tinder')}><i>{icon('M10 16.6s-6.4-3.8-6.4-8.4A3.5 3.5 0 0 1 10 6.1a3.5 3.5 0 0 1 6.4 2.1c0 4.6-6.4 8.4-6.4 8.4z')}</i><span><b>Выбор сердцем</b><small>Карточки по вашему интервью</small></span>{arrow()}</button>
+        <button onClick={() => go('tinder')}><i>{icon('M10 16.6s-6.4-3.8-6.4-8.4A3.5 3.5 0 0 1 10 6.1a3.5 3.5 0 0 1 6.4 2.1c0 4.6-6.4 8.4-6.4 8.4z')}</i><span><b>Выбор сердцами</b><small>Карточки по вашему интервью</small></span>{arrow()}</button>
         <button onClick={() => go('discover')}><i>{icon('M10 10.6c-2.6 0-4.6 2.3-4.6 4.4 0 1.3 1 2 2.2 2 .9 0 1.5-.4 2.4-.4s1.5.4 2.4.4c1.2 0 2.2-.7 2.2-2 0-2.1-2-4.4-4.6-4.4z')}</i><span><b>Весь каталог</b><small>{animals.length || '—'} актуальных карточек фонда</small></span>{arrow()}</button>
-        <button onClick={() => go('profile')}><i>{icon('M10 7.4a3.2 3.2 0 1 0 0 .1M3.6 17.2c.9-3.3 3.4-5 6.4-5s5.5 1.7 6.4 5')}</i><span><b>Моя анкета</b><small>Предпочтения и избранное</small></span>{arrow()}</button>
+        <button onClick={() => go('profile')}><i>{icon('M10 7.4a3.2 3.2 0 1 0 0 .1M3.6 17.2c.9-3.3 3.4-5 6.4-5s5.5 1.7 6.4 5')}</i><span><b>Профиль и настройки</b><small>Предпочтения и избранное</small></span>{arrow()}</button>
       </div>
 
       {user && completeness > 0 && completeness < 100 && <div className="now">
@@ -377,7 +379,7 @@ function Chat({ conversation, conversations, setConversation, onConversationCrea
               <small>{item.interview_complete ? 'интервью завершено' : 'сохранено'}</small>
             </button>)}
           </div>
-          <button className="btn btn--line btn--sm" style={{ width: '100%', marginTop: 'var(--s3)' }} onClick={go.bind(null, 'tinder')}>Выбор сердцем</button>
+          <button className="btn btn--line btn--sm" style={{ width: '100%', marginTop: 'var(--s3)' }} onClick={go.bind(null, 'tinder')}>Выбор сердцами</button>
         </div>
       </aside>
     </div>

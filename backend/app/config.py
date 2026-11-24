@@ -10,8 +10,8 @@ class Settings(BaseSettings):
     settings_encryption_key: str = ""
     jwt_expire_minutes: int = 10080
     cors_origins: str = "http://localhost:8080,http://localhost:5173"
-    ai_base_url: str = "https://anymodel.org/v1"
-    ai_model: str = "am/nemotron-3-ultra-550b-a55b"
+    ai_base_url: str = "https://api.deepseek.com"
+    ai_model: str = "deepseek-flash"
     ai_api_key: str = ""
     manager_email: str = ""
     manager_password: str = ""

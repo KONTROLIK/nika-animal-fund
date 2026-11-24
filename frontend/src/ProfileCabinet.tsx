@@ -61,7 +61,7 @@ export function ProfileCabinet({ user, notify, onUpdated }: Props) {
 
     <div className="pc-tabs" role="tablist">
       <button role="tab" aria-selected={tab === 'account'} onClick={() => setTab('account')}>Личные данные</button>
-      <button role="tab" aria-selected={tab === 'preferences'} onClick={() => setTab('preferences')}>Моя анкета</button>
+      <button role="tab" aria-selected={tab === 'preferences'} onClick={() => setTab('preferences')}>Профиль и настройки</button>
       <button role="tab" aria-selected={tab === 'favorites'} onClick={() => setTab('favorites')}>Избранное{favorites.length ? ` · ${favorites.length}` : ''}</button>
     </div>
 
