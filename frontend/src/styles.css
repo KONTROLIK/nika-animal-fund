@@ -369,13 +369,15 @@
   .pc-deck{margin-left:calc(-1 * var(--pad));margin-right:calc(-1 * var(--pad))}
   .pc-deck>div:first-child{width:100%}
   .pc-card{border-radius:var(--r-m);box-shadow:0 18px 42px rgba(11,14,7,.24)}
-  .pc-card figure{height:auto;min-height:0}
-  .pc-card__body{padding:var(--s12) var(--s4) 96px}
-  .pc-card__body h2{font-size:var(--fs-2xl)}
-  .pc-card__description{display:none}
-  .pc-card__link{margin-top:var(--s2)}
-  .pc-swipe{gap:var(--s3);margin-top:var(--s3)}
-  .pc-swipe button,.pc-details{width:var(--h-l);height:var(--h-l)}
+   .pc-card figure{height:min(58svh,480px);aspect-ratio:auto}
+   .pc-card__body{position:relative;left:auto;right:auto;bottom:auto;padding:var(--s4) var(--s4) var(--s3);background:var(--field)}
+   .pc-card__body h2{font-size:var(--fs-2xl)}
+   .pc-card__description{display:none}
+   .pc-card__link{margin-top:var(--s2)}
+   .pc-card__actions{position:relative;left:auto;right:auto;bottom:auto;padding:0 var(--s4) var(--s4);background:var(--field)}
+   .pc-swipe{gap:var(--s3);margin-top:0}
+   .pc-swipe button,.pc-details{width:72px;height:72px}
+   .pc-swipe span{white-space:nowrap}
   .pc-side{display:none}
 }
 @media (max-width:480px){
