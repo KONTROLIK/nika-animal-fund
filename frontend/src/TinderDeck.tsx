@@ -3,6 +3,8 @@ import { api, type Animal, type PortraitStatus } from './api'
 
 type Props = { notify: (message: string) => void; go: (route: 'chat') => void }
 
+const deckIcon = (d: string) => <svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d={d} stroke="currentColor" strokeWidth="1.45" strokeLinecap="round" strokeLinejoin="round" /></svg>
+
 export function TinderDeck({ notify, go }: Props) {
   const [portrait, setPortrait] = useState<PortraitStatus | null>(null)
   const [animals, setAnimals] = useState<Animal[]>([])
@@ -64,21 +66,22 @@ export function TinderDeck({ notify, go }: Props) {
           <article className="pc-card" style={{ transform: `translateX(${drag}px) rotate(${drag / 22}deg)` }} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp}>
             <figure>
               <img src={animal.image_url} alt={`${animal.name}, ${animal.species}`} draggable={false} />
+              <div className="pc-card__top"><span>{animal.shelter}</span><span>{index + 1} / {animals.length}</span></div>
               <span className="pc-card__mark">{animal.guardians}</span>
               {drag > 30 && <span className="pc-stamp pc-stamp--like">Нравится</span>}
               {drag < -30 && <span className="pc-stamp pc-stamp--skip">Пропустить</span>}
             </figure>
             <div className="pc-card__body">
-              <span className="chip">{animal.shelter}</span>
               <h2>{animal.name}</h2>
-              <p>{animal.age} · {animal.gender} · {animal.species}</p>
-              <p>{animal.description?.split('\n')[0] || 'Актуальная информация опубликована фондом.'}</p>
-              <p style={{ marginTop: 'var(--s4)' }}><a className="lnk" href={animal.source_url} target="_blank" rel="noreferrer">Открыть карточку фонда</a></p>
+              <p className="pc-card__facts"><span>{animal.age}</span><span>{animal.gender}</span><span>{animal.species}</span></p>
+              <p className="pc-card__description">{animal.description?.split('\n')[0] || 'Актуальная информация опубликована фондом.'}</p>
+              <a className="pc-card__link" href={animal.source_url} target="_blank" rel="noreferrer">Открыть карточку фонда {deckIcon('M4 10h11M10 5l5 5-5 5')}</a>
             </div>
           </article>
           <div className="pc-swipe">
-            <button className="pc-no" onClick={() => decide('skip')} aria-label="Пропустить">×<span>Пропустить</span></button>
-            <button className="pc-yes" onClick={() => decide('like')} aria-label="Нравится">♥<span>Нравится</span></button>
+            <button className="pc-no" onClick={() => decide('skip')} aria-label="Пропустить">{deckIcon('M5 5l10 10M15 5 5 15')}<span>Пропустить</span></button>
+            <a className="pc-details" href={animal.source_url} target="_blank" rel="noreferrer" aria-label="Открыть карточку фонда">{deckIcon('M4 4h12v12H4zM7 7h6M7 10h6M7 13h3')}<span>Подробнее</span></a>
+            <button className="pc-yes" onClick={() => decide('like')} aria-label="Добавить в избранное">{deckIcon('M10 17s-6-3.6-6-8a3.5 3.5 0 0 1 6-2.2A3.5 3.5 0 0 1 16 9c0 4.4-6 8-6 8z')}<span>Нравится</span></button>
           </div>
           <div className="bar" style={{ marginTop: 'var(--s4)' }}><i style={{ width: `${Math.min(100, index / Math.max(animals.length, 1) * 100)}%` }} /></div>
           <p className="hint">{index + 1} из {animals.length}</p>
