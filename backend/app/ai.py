@@ -89,6 +89,7 @@ class Completion:
     output_tokens: int | None
     total_tokens: int | None
     usage_available: bool
+    finish_reason: str | None
 
 
 class AIService:
@@ -146,7 +147,8 @@ class AIService:
                 log.status = "success"
                 db.add(log)
                 db.flush()
-            return Completion(body["choices"][0]["message"]["content"], model, input_tokens, output_tokens, total_tokens, log.usage_available if log else input_tokens is not None and output_tokens is not None)
+            choice = body["choices"][0]
+            return Completion(choice["message"]["content"], model, input_tokens, output_tokens, total_tokens, log.usage_available if log else input_tokens is not None and output_tokens is not None, choice.get("finish_reason"))
         except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as error:
             if log is not None:
                 log.error_message = str(error)[:1000]
@@ -230,10 +232,13 @@ class AIService:
     async def narrate(self, text: str, preference: dict, recommendations: list[dict], portrait: dict | None = None, next_topic: tuple | None = None, db: Session | None = None, user_id: int | None = None, conversation_id: int | None = None) -> str:
         names = ", ".join(item["name"] for item in recommendations[:3])
         next_question = next_topic[2] if next_topic else ("Хочешь посмотреть первые совпадения?" if recommendations else "Если хочешь, расскажи, что ещё важно учесть.")
-        raw = await self.complete([
+        messages = [
             {"role": "system", "content": NARRATOR_SYSTEM_PROMPT},
             {"role": "user", "content": json.dumps({"visible_preferences": preference, "private_portrait": portrait or {}, "catalog_names": names, "user_message": text, "next_question": next_question}, ensure_ascii=False)},
-        ], temperature=0.7, db=db, agent="narrator", user_id=user_id, conversation_id=conversation_id, max_tokens=300)
+        ]
+        raw = await self.complete(messages, temperature=0.7, db=db, agent="narrator", user_id=user_id, conversation_id=conversation_id, max_tokens=600)
+        if raw and raw.finish_reason == "length":
+            raw = await self.complete(messages, temperature=0.7, db=db, agent="narrator", user_id=user_id, conversation_id=conversation_id, max_tokens=900)
         if raw:
             return raw.text.strip()
         return f"Спасибо, это важно. {next_question}"
