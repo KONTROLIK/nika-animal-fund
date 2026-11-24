@@ -345,12 +345,14 @@ function Chat({ conversation, conversations, setConversation, onConversationCrea
   const closeGuide = () => { localStorage.setItem('petconnect-chat-guide-seen', '1'); setShowGuide(false) }
 
   return <section>
-    <PageHead title="Помощник Ника" sub="Обычный разговор вместо анкеты: помощник задаёт по одному вопросу и собирает контекст для подбора." action={<button className="btn btn--line btn--sm" onClick={newChat}>Новый диалог</button>} />
-    <div className="pc-chat" style={{ marginTop: 'var(--block)' }}>
+    <div className="pc-chat pc-chat--gpt">
       <div className="pc-chat__main">
         <div className="pc-chat__head">
           <div className="pc-bot"><i>✦</i><div><b>Ника</b><small>персональный помощник · онлайн</small></div></div>
-          <span className="chip">{conversation?.interview_complete ? 'интервью завершено' : `тем: ${(portrait?.topics.length || 8) - remaining}/${portrait?.topics.length || 8}`}</span>
+          <div className="pc-chat__head-actions">
+            <span className="chip">{conversation?.interview_complete ? 'интервью завершено' : `тем: ${(portrait?.topics.length || 8) - remaining}/${portrait?.topics.length || 8}`}</span>
+            <button className="pc-chat__new" onClick={newChat}>Новый диалог</button>
+          </div>
         </div>
         <div className="pc-progress">
           <div className="pc-progress__h"><span>Прогресс интервью</span><span>{completeness}%</span></div>
