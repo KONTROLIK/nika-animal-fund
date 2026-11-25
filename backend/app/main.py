@@ -500,7 +500,21 @@ def ai_analytics(
         model_row["requests"] += 1
         model_row["tokens"] += item.total_tokens or 0
         model_row["cost_usd"] += float(item.cost_usd or 0)
-    series = sorted(by_day.values(), key=lambda row: row["date"])
+    if granularity == "hour":
+        anchor = end - timedelta(hours=1)
+        bucket_keys = [(anchor - timedelta(hours=offset)).isoformat() for offset in range(11, -1, -1)]
+    elif granularity == "day":
+        bucket_keys = [(last - timedelta(days=offset)).isoformat() for offset in range(11, -1, -1)]
+    elif granularity == "week":
+        anchor = last - timedelta(days=last.weekday())
+        bucket_keys = [(anchor - timedelta(weeks=offset)).isoformat() for offset in range(11, -1, -1)]
+    else:
+        month_number = last.year * 12 + last.month - 1
+        bucket_keys = []
+        for offset in range(11, -1, -1):
+            value = month_number - offset
+            bucket_keys.append(date(value // 12, value % 12 + 1, 1).isoformat())
+    series = [by_day.get(key, {"date": key, "requests": 0, "tokens": 0, "cost_usd": 0.0}) for key in bucket_keys]
     usage_models = set(db.scalars(select(AIUsageLog.model).distinct()))
     priced_models = set(db.scalars(select(AIModelPricing.model)))
     all_models = sorted(usage_models | priced_models)
