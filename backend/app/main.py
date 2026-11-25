@@ -455,7 +455,7 @@ def ai_analytics(
     start_date: date | None = None,
     end_date: date | None = None,
     model: str | None = None,
-    granularity: str = Query("day", pattern="^(day|week|month)$"),
+    granularity: str = Query("day", pattern="^(hour|day|week|month)$"),
     _: User = Depends(manager_only),
     db: Session = Depends(get_db),
 ):
@@ -483,7 +483,9 @@ def ai_analytics(
     by_model: dict[str, dict] = {}
     for item in logs:
         item_date = item.created_at.date()
-        if granularity == "week":
+        if granularity == "hour":
+            period_key = item.created_at.astimezone(timezone.utc).replace(minute=0, second=0, microsecond=0).isoformat()
+        elif granularity == "week":
             monday = item_date - timedelta(days=item_date.weekday())
             period_key = monday.isoformat()
         elif granularity == "month":
@@ -498,7 +500,7 @@ def ai_analytics(
         model_row["requests"] += 1
         model_row["tokens"] += item.total_tokens or 0
         model_row["cost_usd"] += float(item.cost_usd or 0)
-    series = list(reversed(sorted(by_day.values(), key=lambda row: row["date"])))
+    series = sorted(by_day.values(), key=lambda row: row["date"])
     usage_models = set(db.scalars(select(AIUsageLog.model).distinct()))
     priced_models = set(db.scalars(select(AIModelPricing.model)))
     all_models = sorted(usage_models | priced_models)

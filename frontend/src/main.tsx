@@ -534,6 +534,7 @@ function AIAnalyticsPanel({ notify }: { notify: (text: string) => void }) {
   const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [model, setModel] = useState('')
   const [granularity, setGranularity] = useState('day')
+  const [metric, setMetric] = useState<'requests' | 'tokens' | 'cost_usd'>('requests')
   const [pricingForm, setPricingForm] = useState({ model: '', input_usd_per_million: '', output_usd_per_million: '' })
 
   const load = () => {
@@ -559,8 +560,18 @@ function AIAnalyticsPanel({ notify }: { notify: (text: string) => void }) {
   }
 
   const summary = analytics?.summary
-  const maxCost = Math.max(...(analytics?.series.map(item => item.cost_usd) || [0]), 0.000001)
   const money = (value: number | null | undefined) => value == null ? '—' : `$${value.toFixed(6)}`
+  const metricLabel = metric === 'requests' ? 'запросы' : metric === 'tokens' ? 'токены' : 'стоимость'
+  const metricValue = (item: AIAnalytics['series'][number]) => metric === 'requests' ? item.requests : metric === 'tokens' ? item.tokens : item.cost_usd
+  const maxValue = Math.max(...(analytics?.series.map(metricValue) || [0]), metric === 'cost_usd' ? 0.000001 : 1)
+  const compact = (value: number) => metric === 'cost_usd' ? money(value) : Intl.NumberFormat('ru-RU', { notation: 'compact', maximumFractionDigits: 1 }).format(value)
+  const periodLabel = (value: string) => {
+    const date = new Date(value)
+    if (granularity === 'hour') return date.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit' })
+    if (granularity === 'month') return date.toLocaleDateString('ru-RU', { month: 'short', year: '2-digit' })
+    return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })
+  }
+  const chartTicks = [1, .75, .5, .25, 0]
 
   return <div className="pc-ai-analytics">
     <div className="sechead"><div><h2 className="h2">Финансовая аналитика AI</h2><p className="hint">Стоимость рассчитывается только по usage провайдера и сохранённым тарифам модели.</p></div><span className="chip">{summary?.incomplete_requests || 0} неполных</span></div>
@@ -568,7 +579,8 @@ function AIAnalyticsPanel({ notify }: { notify: (text: string) => void }) {
       <label>С <input className="inp" type="date" value={startDate} onChange={event => setStartDate(event.target.value)} /></label>
       <label>По <input className="inp" type="date" value={endDate} onChange={event => setEndDate(event.target.value)} /></label>
       <label>Модель <select className="inp" value={model} onChange={event => setModel(event.target.value)}><option value="">Все модели</option>{(analytics?.models || []).map(item => <option key={item}>{item}</option>)}</select></label>
-      <label>Период <select className="inp" value={granularity} onChange={event => setGranularity(event.target.value)}><option value="day">По дням</option><option value="week">По неделям</option><option value="month">По месяцам</option></select></label>
+      <label>Группировка <select className="inp" value={granularity} onChange={event => setGranularity(event.target.value)}><option value="hour">По часам</option><option value="day">По дням</option><option value="week">По неделям</option><option value="month">По месяцам</option></select></label>
+      <label>Показатель <select className="inp" value={metric} onChange={event => setMetric(event.target.value as typeof metric)}><option value="requests">Запросы</option><option value="tokens">Токены</option><option value="cost_usd">Стоимость</option></select></label>
       <button className="btn btn--line btn--sm" onClick={load}>Обновить</button>
     </div>
     <div className="pc-ai-metrics">
@@ -579,8 +591,8 @@ function AIAnalyticsPanel({ notify }: { notify: (text: string) => void }) {
       <div><b>{money(summary?.average_cost_usd)}</b><span>средняя стоимость</span></div>
       <div><b>{summary?.requests || 0}</b><span>запросов</span></div>
     </div>
-    <div className="pc-ai-grid">
-      <div className="card pc-ai-chart"><div className="sechead"><h3 className="h3">Динамика расходов</h3><span className="st st--xs">по дням</span></div>{analytics?.series.length ? <div className="pc-bars">{analytics.series.map(item => <div className="pc-bar" key={item.date} title={`${item.date}: ${money(item.cost_usd)}`}><i style={{ height: `${Math.max(3, item.cost_usd / maxCost * 100)}%` }} /><small>{item.date.slice(5)}</small></div>)}</div> : <div className="pc-empty">Нет usage за выбранный период.</div>}</div>
+      <div className="pc-ai-grid">
+       <div className="card pc-ai-chart"><div className="sechead"><div><h3 className="h3">Гистограмма AI</h3><p className="hint">{metricLabel} {granularity === 'hour' ? 'по часам' : granularity === 'day' ? 'по дням' : granularity === 'week' ? 'по неделям' : 'по месяцам'}</p></div><span className="st st--xs">{analytics?.series.length || 0} интервалов</span></div>{analytics?.series.length ? <div className="pc-chart-shell"><div className="pc-chart-y">{chartTicks.map(tick => <small key={tick}>{compact(maxValue * tick)}</small>)}</div><div className="pc-chart-main"><div className="pc-chart-grid">{chartTicks.map(tick => <i key={tick} style={{ bottom: `${tick * 100}%` }} />)}</div><div className="pc-bars">{analytics.series.map(item => { const value = metricValue(item); return <div className="pc-bar" key={item.date} title={`${periodLabel(item.date)} · ${compact(value)} · ${item.requests} запросов`}><i style={{ height: `${Math.max(value ? 3 : 0, value / maxValue * 100)}%` }}><b>{compact(value)}</b></i><small>{periodLabel(item.date)}</small></div> })}</div></div></div> : <div className="pc-empty">Нет usage за выбранный период.</div>}</div>
       <div className="card"><div className="sechead"><h3 className="h3">По моделям</h3><span className="st st--xs">сравнение</span></div>{analytics?.by_model.length ? <table className="pc-table"><thead><tr><th>Модель</th><th>Запросов</th><th>Токенов</th><th>Стоимость</th></tr></thead><tbody>{analytics.by_model.map(item => <tr key={item.model}><td>{item.model}</td><td>{item.requests}</td><td>{item.tokens.toLocaleString()}</td><td>{money(item.cost_usd)}</td></tr>)}</tbody></table> : <div className="pc-empty">Модели появятся после первого запроса.</div>}</div>
     </div>
     <div className="pc-ai-grid">
