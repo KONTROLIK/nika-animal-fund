@@ -445,6 +445,10 @@ def update_ai_pricing(payload: AIPricingIn, _: User = Depends(manager_only), db:
         db.add(pricing)
     pricing.input_usd_per_million = payload.input_usd_per_million
     pricing.output_usd_per_million = payload.output_usd_per_million
+    for usage in db.scalars(select(AIUsageLog).where(AIUsageLog.model == model)):
+        usage.pricing_available = True
+        if usage.input_tokens is not None and usage.output_tokens is not None:
+            usage.cost_usd = (usage.input_tokens * payload.input_usd_per_million + usage.output_tokens * payload.output_usd_per_million) / 1_000_000
     db.commit()
     db.refresh(pricing)
     return pricing
@@ -479,7 +483,8 @@ def ai_analytics(
     total_input = sum(item.input_tokens or 0 for item in logs)
     total_output = sum(item.output_tokens or 0 for item in logs)
     total = sum(item.total_tokens or 0 for item in logs)
-    total_cost = sum(float(item.cost_usd or 0) for item in logs)
+    priced_costs = [float(item.cost_usd) for item in logs if item.cost_usd is not None]
+    total_cost = sum(priced_costs) if priced_costs else None
 
     by_day: dict[str, dict] = {}
     by_model: dict[str, dict] = {}
@@ -495,10 +500,11 @@ def ai_analytics(
         day_row["requests"] += 1
         day_row["tokens"] += item.total_tokens or 0
         day_row["cost_usd"] += float(item.cost_usd or 0)
-        model_row = by_model.setdefault(item.model, {"model": item.model, "requests": 0, "tokens": 0, "cost_usd": 0.0})
+        model_row = by_model.setdefault(item.model, {"model": item.model, "requests": 0, "tokens": 0, "cost_usd": None})
         model_row["requests"] += 1
         model_row["tokens"] += item.total_tokens or 0
-        model_row["cost_usd"] += float(item.cost_usd or 0)
+        if item.cost_usd is not None:
+            model_row["cost_usd"] = (model_row["cost_usd"] or 0) + float(item.cost_usd)
     if granularity == "hour":
         cursor = start
         bucket_keys = []
@@ -530,12 +536,12 @@ def ai_analytics(
             "output_tokens": total_output,
             "total_tokens": total,
             "cost_usd": total_cost,
-            "average_cost_usd": total_cost / len(logs) if logs else 0,
+            "average_cost_usd": total_cost / len(priced_costs) if priced_costs else None,
             "complete_requests": len(complete),
             "incomplete_requests": len(logs) - len(complete),
         },
         "series": series,
-        "by_model": sorted(by_model.values(), key=lambda row: row["cost_usd"], reverse=True),
+        "by_model": sorted(by_model.values(), key=lambda row: row["cost_usd"] or 0, reverse=True),
         "most_expensive": sorted(items, key=lambda item: item["cost_usd"] or 0, reverse=True)[:10],
         "history": items[:100],
         "models": all_models,

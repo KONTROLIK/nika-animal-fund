@@ -255,6 +255,12 @@
 .pc-ai-table-wrap{overflow-x:auto}
 .pc-ai-table-wrap .pc-table{min-width:640px}
 .pc-incomplete{font-size:var(--fs-xs);color:var(--accent)}
+.pc-collapsible{padding-top:var(--s3)}
+.pc-collapsible summary{cursor:pointer;list-style:none}
+.pc-collapsible summary::-webkit-details-marker{display:none}
+.pc-collapsible summary::after{content:'⌄';font-size:var(--fs-l);color:var(--ink-3);transition:transform var(--dur-2) var(--ease)}
+.pc-collapsible[open] summary::after{transform:rotate(180deg)}
+.pc-collapsible:not([open]){padding-bottom:var(--s3)}
 
 /* ── Обзор кабинета: спокойный порядок секций как в кабинете фонда ── */
 .overview{display:flex;flex-direction:column;gap:var(--s5)}

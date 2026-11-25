@@ -557,16 +557,17 @@ function AIAnalyticsPanel({ notify }: { notify: (text: string) => void }) {
       const saved = await api.updateAIPricing({ model: pricingForm.model, input_usd_per_million: Number(pricingForm.input_usd_per_million) || 0, output_usd_per_million: Number(pricingForm.output_usd_per_million) || 0, updated_at: null })
       setPricing(items => [...items.filter(item => item.model !== saved.model), saved].sort((a, b) => a.model.localeCompare(b.model)))
       setPricingForm({ model: '', input_usd_per_million: '', output_usd_per_million: '' })
+      load()
       notify('Тариф сохранён')
     } catch (error) { notify((error as Error).message) }
   }
 
   const summary = analytics?.summary
-  const money = (value: number | null | undefined) => value == null ? '—' : `$${value.toFixed(6)}`
+  const money = (value: number | null | undefined) => value == null ? 'нет тарифа' : value === 0 ? '$0.00' : `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 12 })}`
   const metricLabel = metric === 'requests' ? 'запросы' : metric === 'tokens' ? 'токены' : 'стоимость'
   const metricValue = (item: AIAnalytics['series'][number]) => metric === 'requests' ? item.requests : metric === 'tokens' ? item.tokens : item.cost_usd
   const maxValue = Math.max(...(analytics?.series.map(metricValue) || [0]), metric === 'cost_usd' ? 0.000001 : 1)
-  const compact = (value: number) => metric === 'cost_usd' ? money(value) : Intl.NumberFormat('ru-RU', { notation: 'compact', maximumFractionDigits: 1 }).format(value)
+  const compact = (value: number) => metric === 'cost_usd' ? analytics?.summary.cost_usd == null ? 'нет тарифа' : money(value) : Intl.NumberFormat('ru-RU', { notation: 'compact', maximumFractionDigits: 1 }).format(value)
   const periodLabel = (value: string) => {
     const date = new Date(value)
     if (granularity === 'hour') return date.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit' })
@@ -598,16 +599,16 @@ function AIAnalyticsPanel({ notify }: { notify: (text: string) => void }) {
       <div className="card"><div className="sechead"><h3 className="h3">По моделям</h3><span className="st st--xs">сравнение</span></div>{analytics?.by_model.length ? <table className="pc-table"><thead><tr><th>Модель</th><th>Запросов</th><th>Токенов</th><th>Стоимость</th></tr></thead><tbody>{analytics.by_model.map(item => <tr key={item.model}><td>{item.model}</td><td>{item.requests}</td><td>{item.tokens.toLocaleString()}</td><td>{money(item.cost_usd)}</td></tr>)}</tbody></table> : <div className="pc-empty">Модели появятся после первого запроса.</div>}</div>
     </div>
     <div className="pc-ai-grid">
-      <div className="card"><div className="sechead"><h3 className="h3">Самые затратные запросы</h3></div><AIUsageTable items={analytics?.most_expensive || []} money={money} /></div>
+      <details className="card pc-collapsible" open><summary className="sechead"><h3 className="h3">Самые затратные запросы</h3><span className="st st--xs">{analytics?.most_expensive.length || 0}</span></summary><AIUsageTable items={analytics?.most_expensive || []} money={money} /></details>
       <div className="card"><div className="sechead"><h3 className="h3">Тарифы моделей</h3><span className="st st--xs">USD за 1M</span></div><form className="pc-ai-pricing" onSubmit={savePricing}><input className="inp" placeholder="Название модели" value={pricingForm.model} onChange={event => setPricingForm({ ...pricingForm, model: event.target.value })} required /><input className="inp" type="number" min="0" step="any" placeholder="Input" value={pricingForm.input_usd_per_million} onChange={event => setPricingForm({ ...pricingForm, input_usd_per_million: event.target.value })} required /><input className="inp" type="number" min="0" step="any" placeholder="Output" value={pricingForm.output_usd_per_million} onChange={event => setPricingForm({ ...pricingForm, output_usd_per_million: event.target.value })} required /><button className="btn btn--fill btn--sm" type="submit">Сохранить</button></form>{pricing.length ? <table className="pc-table"><thead><tr><th>Модель</th><th>Input</th><th>Output</th></tr></thead><tbody>{pricing.map(item => <tr key={item.model}><td>{item.model}</td><td>${item.input_usd_per_million}</td><td>${item.output_usd_per_million}</td></tr>)}</tbody></table> : <p className="hint">Тарифы не настроены. Стоимость останется неизвестной, пока менеджер не добавит тариф.</p>}</div>
     </div>
-    <div className="card"><div className="sechead"><h3 className="h3">История запросов</h3><span className="st st--xs">последние 100</span></div><AIUsageTable items={analytics?.history || []} money={money} /></div>
+    <details className="card pc-collapsible" open><summary className="sechead"><h3 className="h3">История запросов</h3><span className="st st--xs">последние 100</span></summary><AIUsageTable items={analytics?.history || []} money={money} /></details>
   </div>
 }
 
 function AIUsageTable({ items, money }: { items: AIAnalytics['history']; money: (value: number | null | undefined) => string }) {
   if (!items.length) return <div className="pc-empty">Запросов с usage пока нет.</div>
-  return <div className="pc-ai-table-wrap"><table className="pc-table"><thead><tr><th>Время / пользователь</th><th>Модель</th><th>Input</th><th>Output</th><th>Стоимость</th></tr></thead><tbody>{items.map(item => <tr key={item.id}><td>{new Date(item.created_at).toLocaleString()}<small>{item.user_name || 'системный запрос'} · {item.agent}</small></td><td>{item.model}</td><td>{item.input_tokens?.toLocaleString() || '—'}</td><td>{item.output_tokens?.toLocaleString() || '—'}</td><td>{item.cost_usd == null ? <span className="pc-incomplete">неполная статистика</span> : money(item.cost_usd)}</td></tr>)}</tbody></table></div>
+  return <div className="pc-ai-table-wrap"><table className="pc-table"><thead><tr><th>Время / пользователь</th><th>Модель</th><th>Input</th><th>Output</th><th>Стоимость</th></tr></thead><tbody>{items.map(item => <tr key={item.id}><td>{new Date(item.created_at).toLocaleString()}<small>{item.user_name || 'системный запрос'} · {item.agent}</small></td><td>{item.model}</td><td>{item.input_tokens?.toLocaleString() || '—'}</td><td>{item.output_tokens?.toLocaleString() || '—'}</td><td>{item.cost_usd == null ? <span className="pc-incomplete">нет тарифа</span> : money(item.cost_usd)}</td></tr>)}</tbody></table></div>
 }
 
 function Auth({ onSuccess }: { onSuccess: (result: { access_token: string; user: User; conversation: Conversation }) => void }) {

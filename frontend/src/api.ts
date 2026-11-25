@@ -10,7 +10,7 @@ export type ManagerDetails = { user: User; preference: Preference | null; portra
 export type AISettings = { enabled: boolean; has_api_key: boolean; updated_at: string | null }
 export type AIPricing = { model: string; input_usd_per_million: number; output_usd_per_million: number; updated_at: string | null }
 export type AIUsageItem = { id: number; created_at: string; agent: string; model: string; input_tokens: number | null; output_tokens: number | null; total_tokens: number | null; cost_usd: number | null; usage_available: boolean; pricing_available: boolean; status: string; user_name: string | null }
-export type AIAnalytics = { period: { start_date: string; end_date: string }; summary: { requests: number; input_tokens: number; output_tokens: number; total_tokens: number; cost_usd: number; average_cost_usd: number; complete_requests: number; incomplete_requests: number }; series: Array<{ date: string; requests: number; tokens: number; cost_usd: number }>; by_model: Array<{ model: string; requests: number; tokens: number; cost_usd: number }>; most_expensive: AIUsageItem[]; history: AIUsageItem[]; models: string[] }
+export type AIAnalytics = { period: { start_date: string; end_date: string }; summary: { requests: number; input_tokens: number; output_tokens: number; total_tokens: number; cost_usd: number | null; average_cost_usd: number | null; complete_requests: number; incomplete_requests: number }; series: Array<{ date: string; requests: number; tokens: number; cost_usd: number }>; by_model: Array<{ model: string; requests: number; tokens: number; cost_usd: number | null }>; most_expensive: AIUsageItem[]; history: AIUsageItem[]; models: string[] }
 
 const API = import.meta.env.VITE_API_BASE || ''
 const tokenKey = 'petconnect-token'
