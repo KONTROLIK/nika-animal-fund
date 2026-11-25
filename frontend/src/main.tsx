@@ -8,7 +8,7 @@ import logo from './logo-nika.png'
 import { ProfileCabinet } from './ProfileCabinet'
 import { TinderDeck } from './TinderDeck'
 
-type Route = 'home' | 'discover' | 'catalog' | 'chat' | 'tinder' | 'regular' | 'profile' | 'manager' | 'auth'
+type Route = 'home' | 'discover' | 'catalog' | 'chat' | 'tinder' | 'regular' | 'profile' | 'manager' | 'users' | 'auth'
 
 const icon = (d: string) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d={d} stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
 
@@ -20,6 +20,7 @@ const nav: Array<[Route, React.ReactNode, string]> = [
   ['tinder', icon('M10 16.6s-6.4-3.8-6.4-8.4A3.5 3.5 0 0 1 10 6.1a3.5 3.5 0 0 1 6.4 2.1c0 4.6-6.4 8.4-6.4 8.4z'), 'Выбор сердцами'],
   ['profile', icon('M10 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM4 17c.5-3 2.5-4.5 6-4.5s5.5 1.5 6 4.5'), 'Профиль и настройки'],
   ['manager', icon('M3 4h14v4H3zM3 12h6v5H3zM12 12h5v5h-5z'), 'Менеджер'],
+  ['users', icon('M4 16c.4-2.4 2-3.6 4.5-3.6S12.6 13.6 13 16M8.5 9.5a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6zM13 8.2a2 2 0 1 0 2.1-2.8'), 'Пользователи'],
 ]
 
 function App() {
@@ -63,8 +64,8 @@ function App() {
     notify('Добро пожаловать — знакомство начинается')
   }
 
-  const visibleNav = nav.filter(([id]) => id !== 'manager' || user?.role === 'MANAGER' || user?.role === 'ADMIN')
-  const locked = !user && ['discover', 'chat', 'profile', 'tinder', 'manager'].includes(route)
+  const visibleNav = nav.filter(([id]) => !['manager', 'users'].includes(id) || user?.role === 'MANAGER' || user?.role === 'ADMIN')
+  const locked = !user && ['discover', 'chat', 'profile', 'tinder', 'manager', 'users'].includes(route)
 
   const content = locked || route === 'auth'
     ? <Auth onSuccess={onAuth} />
@@ -76,6 +77,7 @@ function App() {
     : route === 'tinder' ? <TinderDeck notify={notify} go={go} user={user!} />
     : route === 'regular' ? <RegularHelp go={go} />
     : route === 'manager' ? <Manager notify={notify} />
+    : route === 'users' ? <UsersManagement notify={notify} />
     : <Home go={go} user={user} notify={notify} />
 
   return <>
@@ -112,7 +114,7 @@ function App() {
         </nav>
         <nav className="snav" aria-label="Аккаунт">
           <p className="snav__title">Аккаунт</p>
-          {visibleNav.filter(([id]) => ['profile', 'manager'].includes(id)).map(([id, ico, label]) =>
+          {visibleNav.filter(([id]) => ['profile', 'manager', 'users'].includes(id)).map(([id, ico, label]) =>
             <a key={id} href={`#${id}`} aria-current={route === id ? 'page' : undefined} onClick={e => { e.preventDefault(); go(id) }}>{ico}{label}</a>)}
         </nav>
       </aside>
@@ -418,24 +420,15 @@ function Chat({ conversation, onConversationCreated, onConversationUpdated, noti
 
 function Manager({ notify }: { notify: (text: string) => void }) {
   const [overview, setOverview] = useState<{ users: number; animals: number; conversations: number; without_guardians: number } | null>(null)
-  const [users, setUsers] = useState<Array<User & { preference: Preference | null; favorite_count: number; conversation_count: number }>>([])
   const [events, setEvents] = useState<string[]>([])
   const [aiEnabled, setAiEnabled] = useState(false)
   const [hasKey, setHasKey] = useState(false)
   const [apiKey, setApiKey] = useState('')
   const [trace, setTrace] = useState<Array<{ agent: string; title: string; content: string; at: string }>>([])
 
-  const setCardsAccess = async (person: User) => {
-    try {
-      const updated = await api.updateCardsAccess(person.id, !person.cards_access)
-      setUsers(items => items.map(item => item.id === updated.id ? { ...item, cards_access: updated.cards_access } : item))
-      notify(updated.cards_access ? `Карточки открыты для ${updated.name}` : `Доступ к карточкам закрыт для ${updated.name}`)
-    } catch (error) { notify((error as Error).message) }
-  }
-
   useEffect(() => {
-    Promise.all([api.managerOverview(), api.managerUsers(), api.aiSettings()])
-      .then(([stats, people, ai]) => { setOverview(stats); setUsers(people); setAiEnabled(ai.enabled); setHasKey(ai.has_api_key) })
+    Promise.all([api.managerOverview(), api.aiSettings()])
+      .then(([stats, ai]) => { setOverview(stats); setAiEnabled(ai.enabled); setHasKey(ai.has_api_key) })
       .catch(error => notify(error.message))
     const current = token()
     if (!current) return
@@ -492,23 +485,44 @@ function Manager({ notify }: { notify: (text: string) => void }) {
     </div>
 
     <div className="card" style={{ marginTop: 'var(--s3)' }}>
-      <div className="sechead"><h2 className="h2">Пользователи</h2><span className="st st--xs">{users.length}</span></div>
-      <table className="pc-table">
-        <thead><tr><th>Пользователь</th><th>Роль</th><th>Диалогов</th><th>Избранное</th><th>Анкета</th><th>Карточки</th></tr></thead>
-        <tbody>{users.map(person => <tr key={person.id}>
-          <td><b>{person.name}</b><small>{person.email}</small></td>
-          <td><span className="chip">{person.role}</span></td>
-          <td>{person.conversation_count}</td>
-          <td>{person.favorite_count}</td>
-          <td>{person.preference?.pet_type || 'не заполнена'}</td>
-          <td><button className={`btn btn--sm ${person.cards_access ? 'btn--fill' : 'btn--line'}`} type="button" onClick={() => void setCardsAccess(person)}>{person.cards_access ? 'Открыты' : 'Открыть'}</button></td>
-        </tr>)}</tbody>
-      </table>
-    </div>
-
-    <div className="card" style={{ marginTop: 'var(--s3)' }}>
       <div className="sechead"><h2 className="h2">Живые события</h2></div>
       <p className="hint" style={{ marginTop: 0 }}>{events.length ? events.join(' · ') : 'Новые сообщения и обновления появятся здесь через WebSocket.'}</p>
+    </div>
+  </section>
+}
+
+function UsersManagement({ notify }: { notify: (text: string) => void }) {
+  const [users, setUsers] = useState<Array<User & { preference: Preference | null; favorite_count: number; conversation_count: number }>>([])
+
+  useEffect(() => {
+    api.managerUsers().then(setUsers).catch(error => notify(error.message))
+  }, [])
+
+  const setCardsAccess = async (person: User) => {
+    try {
+      const updated = await api.updateCardsAccess(person.id, !person.cards_access)
+      setUsers(items => items.map(item => item.id === updated.id ? { ...item, cards_access: updated.cards_access } : item))
+      notify(updated.cards_access ? `Карточки открыты для ${updated.name}` : `Доступ к карточкам закрыт для ${updated.name}`)
+    } catch (error) { notify((error as Error).message) }
+  }
+
+  return <section>
+    <PageHead title="Пользователи" sub="Управление аккаунтами, анкетами и доступом к карточкам питомцев." />
+    <div className="card" style={{ marginTop: 'var(--block)' }}>
+      <div className="sechead"><div><h2 className="h2">Аккаунты пользователей</h2><p className="hint">Разрешите пользователю открывать карточки сразу, без завершения интервью.</p></div><span className="st st--xs">{users.length}</span></div>
+      <div className="pc-users-table">
+        <table className="pc-table">
+          <thead><tr><th>Пользователь</th><th>Роль</th><th>Диалогов</th><th>Избранное</th><th>Анкета</th><th>Карточки</th></tr></thead>
+          <tbody>{users.map(person => <tr key={person.id}>
+            <td><b>{person.name}</b><small>{person.email}</small></td>
+            <td><span className="chip">{person.role}</span></td>
+            <td>{person.conversation_count}</td>
+            <td>{person.favorite_count}</td>
+            <td>{person.preference?.pet_type || 'не заполнена'}</td>
+            <td><button className={`btn btn--sm ${person.cards_access ? 'btn--fill' : 'btn--line'}`} type="button" onClick={() => void setCardsAccess(person)}>{person.cards_access ? 'Открыты' : 'Открыть'}</button></td>
+          </tr>)}</tbody>
+        </table>
+      </div>
     </div>
   </section>
 }

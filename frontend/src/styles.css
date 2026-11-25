@@ -199,6 +199,8 @@
 .pc-table th{padding:0 0 var(--s3);text-align:left;font-weight:400;font-size:var(--fs-xs);color:var(--ink-3)}
 .pc-table td{padding:var(--s3) var(--s3) var(--s3) 0;border-top:1px solid var(--rule);vertical-align:top}
 .pc-table small{display:block;margin-top:2px;color:var(--ink-3)}
+.pc-users-table{overflow-x:auto}
+.pc-users-table .pc-table{min-width:760px}
 .pc-trace{display:flex;flex-direction:column;gap:var(--s2);max-height:420px;overflow:auto}
 .pc-trace__it{padding:var(--s3) var(--s4);border-radius:var(--r-s);background:var(--surface-2);border-left:3px solid var(--green)}
 .pc-trace__it.user{border-color:var(--accent)}
