@@ -455,12 +455,14 @@ def ai_analytics(
     start_date: date | None = None,
     end_date: date | None = None,
     model: str | None = None,
-    granularity: str = Query("day", pattern="^(hour|day|week|month)$"),
+    granularity: str = Query("day", pattern="^(hour|day|month)$"),
     _: User = Depends(manager_only),
     db: Session = Depends(get_db),
 ):
     today = datetime.now(timezone.utc).date()
-    first = start_date or today - timedelta(days=29)
+    model_filter = AIUsageLog.model == model if model else True
+    first_record = db.scalar(select(func.min(AIUsageLog.created_at)).where(model_filter))
+    first = start_date or (first_record.astimezone(timezone.utc).date() if first_record else today)
     last = end_date or today
     if last < first:
         raise HTTPException(400, "Дата окончания не может быть раньше даты начала")
@@ -469,7 +471,7 @@ def ai_analytics(
     query = select(AIUsageLog).where(AIUsageLog.created_at >= start, AIUsageLog.created_at < end).order_by(AIUsageLog.created_at.desc())
     if model:
         query = query.where(AIUsageLog.model == model)
-    logs = list(db.scalars(query.limit(500)))
+    logs = list(db.scalars(query))
     user_ids = {item.user_id for item in logs if item.user_id is not None}
     names = {user.id: user.name for user in db.scalars(select(User).where(User.id.in_(user_ids)))} if user_ids else {}
     items = [usage_item(item, names.get(item.user_id)) for item in logs]
@@ -485,9 +487,6 @@ def ai_analytics(
         item_date = item.created_at.date()
         if granularity == "hour":
             period_key = item.created_at.astimezone(timezone.utc).replace(minute=0, second=0, microsecond=0).isoformat()
-        elif granularity == "week":
-            monday = item_date - timedelta(days=item_date.weekday())
-            period_key = monday.isoformat()
         elif granularity == "month":
             period_key = item_date.replace(day=1).isoformat()
         else:
@@ -501,19 +500,24 @@ def ai_analytics(
         model_row["tokens"] += item.total_tokens or 0
         model_row["cost_usd"] += float(item.cost_usd or 0)
     if granularity == "hour":
-        anchor = end - timedelta(hours=1)
-        bucket_keys = [(anchor - timedelta(hours=offset)).isoformat() for offset in range(11, -1, -1)]
-    elif granularity == "day":
-        bucket_keys = [(last - timedelta(days=offset)).isoformat() for offset in range(11, -1, -1)]
-    elif granularity == "week":
-        anchor = last - timedelta(days=last.weekday())
-        bucket_keys = [(anchor - timedelta(weeks=offset)).isoformat() for offset in range(11, -1, -1)]
-    else:
-        month_number = last.year * 12 + last.month - 1
+        cursor = start
         bucket_keys = []
-        for offset in range(11, -1, -1):
-            value = month_number - offset
-            bucket_keys.append(date(value // 12, value % 12 + 1, 1).isoformat())
+        while cursor < end:
+            bucket_keys.append(cursor.isoformat())
+            cursor += timedelta(hours=1)
+    elif granularity == "day":
+        cursor = first
+        bucket_keys = []
+        while cursor <= last:
+            bucket_keys.append(cursor.isoformat())
+            cursor += timedelta(days=1)
+    else:
+        cursor = first.replace(day=1)
+        last_month = last.replace(day=1)
+        bucket_keys = []
+        while cursor <= last_month:
+            bucket_keys.append(cursor.isoformat())
+            cursor = date(cursor.year + (cursor.month == 12), cursor.month % 12 + 1, 1)
     series = [by_day.get(key, {"date": key, "requests": 0, "tokens": 0, "cost_usd": 0.0}) for key in bucket_keys]
     usage_models = set(db.scalars(select(AIUsageLog.model).distinct()))
     priced_models = set(db.scalars(select(AIModelPricing.model)))

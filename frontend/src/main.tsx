@@ -530,15 +530,17 @@ function UsersManagement({ notify }: { notify: (text: string) => void }) {
 function AIAnalyticsPanel({ notify }: { notify: (text: string) => void }) {
   const [analytics, setAnalytics] = useState<AIAnalytics | null>(null)
   const [pricing, setPricing] = useState<Array<{ model: string; input_usd_per_million: number; output_usd_per_million: number; updated_at: string | null }>>([])
-  const [startDate, setStartDate] = useState(() => new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10))
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const [model, setModel] = useState('')
   const [granularity, setGranularity] = useState('day')
   const [metric, setMetric] = useState<'requests' | 'tokens' | 'cost_usd'>('requests')
   const [pricingForm, setPricingForm] = useState({ model: '', input_usd_per_million: '', output_usd_per_million: '' })
 
   const load = () => {
-    const params = new URLSearchParams({ start_date: startDate, end_date: endDate, granularity })
+    const params = new URLSearchParams({ granularity })
+    if (startDate) params.set('start_date', startDate)
+    if (endDate) params.set('end_date', endDate)
     if (model) params.set('model', model)
     api.aiAnalytics(`?${params}`).then(setAnalytics).catch(error => notify(error.message))
   }
@@ -579,7 +581,7 @@ function AIAnalyticsPanel({ notify }: { notify: (text: string) => void }) {
       <label>С <input className="inp" type="date" value={startDate} onChange={event => setStartDate(event.target.value)} /></label>
       <label>По <input className="inp" type="date" value={endDate} onChange={event => setEndDate(event.target.value)} /></label>
       <label>Модель <select className="inp" value={model} onChange={event => setModel(event.target.value)}><option value="">Все модели</option>{(analytics?.models || []).map(item => <option key={item}>{item}</option>)}</select></label>
-      <label>Группировка <select className="inp" value={granularity} onChange={event => setGranularity(event.target.value)}><option value="hour">По часам</option><option value="day">По дням</option><option value="week">По неделям</option><option value="month">По месяцам</option></select></label>
+      <label>Группировка <select className="inp" value={granularity} onChange={event => setGranularity(event.target.value)}><option value="hour">По часам</option><option value="day">По дням</option><option value="month">По месяцам</option></select></label>
       <label>Показатель <select className="inp" value={metric} onChange={event => setMetric(event.target.value as typeof metric)}><option value="requests">Запросы</option><option value="tokens">Токены</option><option value="cost_usd">Стоимость</option></select></label>
       <button className="btn btn--line btn--sm" onClick={load}>Обновить</button>
     </div>
@@ -592,7 +594,7 @@ function AIAnalyticsPanel({ notify }: { notify: (text: string) => void }) {
       <div><b>{summary?.requests || 0}</b><span>запросов</span></div>
     </div>
       <div className="pc-ai-grid">
-        <div className="card pc-ai-chart"><div className="sechead"><div><h3 className="h3">Гистограмма AI</h3><p className="hint">{metricLabel} {granularity === 'hour' ? 'по часам' : granularity === 'day' ? 'по дням' : granularity === 'week' ? 'по неделям' : 'по месяцам'}</p></div><span className="st st--xs">12 интервалов</span></div>{analytics?.series.length ? <div className="pc-chart-shell"><div className="pc-chart-y">{chartTicks.map(tick => <small key={tick}>{compact(maxValue * tick)}</small>)}</div><div className="pc-chart-main"><div className="pc-chart-grid">{chartTicks.map(tick => <i key={tick} style={{ bottom: `${tick * 100}%` }} />)}</div><div className="pc-bars">{analytics.series.map(item => { const value = metricValue(item); return <div className="pc-bar" key={item.date} title={`${periodLabel(item.date)} · ${compact(value)} · ${item.requests} запросов`}><i style={{ height: `${Math.max(value ? 3 : 0, value / maxValue * 100)}%` }}><b>{compact(value)}</b></i><small>{periodLabel(item.date)}</small></div> })}</div></div></div> : <div className="pc-empty">Нет usage за выбранный период.</div>}</div>
+        <div className="card pc-ai-chart"><div className="sechead"><div><h3 className="h3">Гистограмма AI</h3><p className="hint">{metricLabel} {granularity === 'hour' ? 'по часам' : granularity === 'day' ? 'по дням' : 'по месяцам'} · с начала учёта</p></div><span className="st st--xs">{analytics?.series.length || 0} интервалов</span></div>{analytics?.series.length ? <div className="pc-chart-shell"><div className="pc-chart-y">{chartTicks.map(tick => <small key={tick}>{compact(maxValue * tick)}</small>)}</div><div className="pc-chart-main"><div className="pc-chart-grid">{chartTicks.map(tick => <i key={tick} style={{ bottom: `${tick * 100}%` }} />)}</div><div className="pc-bars">{analytics.series.map(item => { const value = metricValue(item); return <div className="pc-bar" key={item.date} title={`${periodLabel(item.date)} · ${compact(value)} · ${item.requests} запросов`}><i style={{ height: `${Math.max(value ? 3 : 0, value / maxValue * 100)}%` }}><b>{compact(value)}</b></i><small>{periodLabel(item.date)}</small></div> })}</div></div></div> : <div className="pc-empty">Нет usage за выбранный период.</div>}</div>
       <div className="card"><div className="sechead"><h3 className="h3">По моделям</h3><span className="st st--xs">сравнение</span></div>{analytics?.by_model.length ? <table className="pc-table"><thead><tr><th>Модель</th><th>Запросов</th><th>Токенов</th><th>Стоимость</th></tr></thead><tbody>{analytics.by_model.map(item => <tr key={item.model}><td>{item.model}</td><td>{item.requests}</td><td>{item.tokens.toLocaleString()}</td><td>{money(item.cost_usd)}</td></tr>)}</tbody></table> : <div className="pc-empty">Модели появятся после первого запроса.</div>}</div>
     </div>
     <div className="pc-ai-grid">
