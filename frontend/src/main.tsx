@@ -425,10 +425,12 @@ function Manager({ notify }: { notify: (text: string) => void }) {
   const [hasKey, setHasKey] = useState(false)
   const [apiKey, setApiKey] = useState('')
   const [trace, setTrace] = useState<Array<{ agent: string; title: string; content: string; at: string }>>([])
+  const [integrations, setIntegrations] = useState<Awaited<ReturnType<typeof api.integrationStatus>> | null>(null)
+  const [syncing, setSyncing] = useState<'payload' | 'bitrix' | null>(null)
 
   useEffect(() => {
-    Promise.all([api.managerOverview(), api.aiSettings()])
-      .then(([stats, ai]) => { setOverview(stats); setAiEnabled(ai.enabled); setHasKey(ai.has_api_key) })
+    Promise.all([api.managerOverview(), api.aiSettings(), api.integrationStatus()])
+      .then(([stats, ai, connection]) => { setOverview(stats); setAiEnabled(ai.enabled); setHasKey(ai.has_api_key); setIntegrations(connection) })
       .catch(error => notify(error.message))
     const current = token()
     if (!current) return
@@ -450,6 +452,15 @@ function Manager({ notify }: { notify: (text: string) => void }) {
     } catch (error) { notify((error as Error).message) }
   }
 
+  const sync = async (target: 'payload' | 'bitrix') => {
+    setSyncing(target)
+    try {
+      const result = target === 'payload' ? await api.syncPayload() : await api.syncBitrix()
+      notify(`${target === 'payload' ? 'Payload' : 'Bitrix24'}: создано ${result.created}, обновлено ${result.updated}`)
+    } catch (error) { notify((error as Error).message) }
+    finally { setSyncing(null) }
+  }
+
   return <section>
     <PageHead title="Рабочее пространство команды" sub="Пользователи, их анкеты и живой обмен сообщениями между экспертной моделью и помощником." />
     <div className="pc-metrics">
@@ -458,6 +469,15 @@ function Manager({ notify }: { notify: (text: string) => void }) {
     </div>
 
     <AIAnalyticsPanel notify={notify} />
+
+    <div className="card pc-integrations">
+      <div className="sechead"><div><h2 className="h2">Интеграции</h2><p className="hint">Текущая PostgreSQL остаётся основной базой. Синхронизация запускается вручную и ничего не удаляет.</p></div><span className="chip">только API</span></div>
+      <div className="pc-integration-grid">
+        <div><b>Payload</b><small>{integrations?.payload.configured ? `подключён · ${integrations.payload.collection}` : 'не настроен'}</small><button className="btn btn--line btn--sm" type="button" disabled={!integrations?.payload.configured || syncing !== null} onClick={() => void sync('payload')}>{syncing === 'payload' ? 'Синхронизация…' : 'Синхронизировать животных'}</button></div>
+        <div><b>Bitrix24</b><small>{integrations?.bitrix.configured ? 'подключён' : 'не настроен'}</small><button className="btn btn--line btn--sm" type="button" disabled={!integrations?.bitrix.configured || syncing !== null} onClick={() => void sync('bitrix')}>{syncing === 'bitrix' ? 'Синхронизация…' : 'Синхронизировать пользователей'}</button></div>
+      </div>
+      <p className="hint">Для подключения задайте <code>PAYLOAD_API_URL</code>, <code>PAYLOAD_API_TOKEN</code> и <code>BITRIX_WEBHOOK_URL</code> в <code>.env</code>, затем перезапустите API.</p>
+    </div>
 
     <div className="card">
       <form onSubmit={saveAI} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--s3)' }}>

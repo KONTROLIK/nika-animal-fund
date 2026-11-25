@@ -7,6 +7,7 @@ from .ai import AIService, PORTRAIT_TOPICS
 from .auth import create_token, current_user, hash_password, manager_only, verify_password
 from .config import get_settings
 from .db import get_db
+from .integrations import IntegrationError, integration_status, sync_animals_to_payload, sync_users_to_bitrix
 from .models import AIModelPricing, AIUsageLog, Animal, Conversation, Favorite, Message, OwnerPortrait, Preference, PreferenceChange, Swipe, User
 from .realtime import events
 from .schemas import AIPricingIn, AIPricingOut, AISettingsIn, AISettingsOut, AIAnalyticsOut, AccountUpdateIn, AnimalOut, CardsAccessIn, ChatIn, ChatOut, ConversationOut, LoginIn, ManagerUserOut, MessageOut, PreferenceIn, PreferenceOut, PortraitStatusOut, PortraitTopic, RegisterIn, SwipeIn, TokenOut, UserOut
@@ -412,6 +413,27 @@ def tinder_swipe(animal_id: int, payload: SwipeIn, user: User = Depends(current_
 @app.get("/api/manager/overview")
 def manager_overview(_: User = Depends(manager_only), db: Session = Depends(get_db)):
     return {"users": db.scalar(select(func.count(User.id)).where(User.role == "USER")) or 0, "animals": db.scalar(select(func.count(Animal.id)).where(Animal.is_available.is_(True))) or 0, "conversations": db.scalar(select(func.count(Conversation.id))) or 0, "without_guardians": db.scalar(select(func.count(Animal.id)).where(Animal.guardians == "Пока без опекунов")) or 0}
+
+
+@app.get("/api/manager/integrations")
+def manager_integrations(_: User = Depends(manager_only)):
+    return integration_status(settings)
+
+
+@app.post("/api/manager/integrations/payload/sync")
+def manager_payload_sync(_: User = Depends(manager_only), db: Session = Depends(get_db)):
+    try:
+        return sync_animals_to_payload(db, settings)
+    except IntegrationError as error:
+        raise HTTPException(400, str(error)) from error
+
+
+@app.post("/api/manager/integrations/bitrix/sync")
+def manager_bitrix_sync(_: User = Depends(manager_only), db: Session = Depends(get_db)):
+    try:
+        return sync_users_to_bitrix(db, settings)
+    except IntegrationError as error:
+        raise HTTPException(400, str(error)) from error
 
 
 def usage_item(item: AIUsageLog, user_name: str | None = None) -> dict:

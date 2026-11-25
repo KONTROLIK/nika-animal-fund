@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     admin_email: str = ""
     admin_password: str = ""
     admin_name: str = "Администратор фонда"
+    payload_api_url: str = ""
+    payload_api_token: str = ""
+    payload_animals_collection: str = "animals"
+    bitrix_webhook_url: str = ""
 
     @property
     def origins(self):

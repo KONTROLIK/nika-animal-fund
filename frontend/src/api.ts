@@ -11,6 +11,7 @@ export type AISettings = { enabled: boolean; has_api_key: boolean; updated_at: s
 export type AIPricing = { model: string; input_usd_per_million: number; output_usd_per_million: number; updated_at: string | null }
 export type AIUsageItem = { id: number; created_at: string; agent: string; model: string; input_tokens: number | null; output_tokens: number | null; total_tokens: number | null; cost_usd: number | null; usage_available: boolean; pricing_available: boolean; status: string; user_name: string | null }
 export type AIAnalytics = { period: { start_date: string; end_date: string }; summary: { requests: number; input_tokens: number; output_tokens: number; total_tokens: number; cost_usd: number | null; average_cost_usd: number | null; complete_requests: number; incomplete_requests: number }; series: Array<{ date: string; requests: number; tokens: number; cost_usd: number }>; by_model: Array<{ model: string; requests: number; tokens: number; cost_usd: number | null }>; most_expensive: AIUsageItem[]; history: AIUsageItem[]; models: string[] }
+export type IntegrationStatus = { payload: { configured: boolean; collection: string }; bitrix: { configured: boolean } }
 
 const API = import.meta.env.VITE_API_BASE || ''
 const tokenKey = 'petconnect-token'
@@ -50,6 +51,9 @@ export const api = {
   tinder: () => request<Animal[]>('/api/tinder/next'),
   swipe: (id: number, decision: 'like' | 'skip') => request(`/api/tinder/${id}`, { method: 'POST', body: JSON.stringify({ decision }) }),
   managerOverview: () => request<{ users: number; animals: number; conversations: number; without_guardians: number }>('/api/manager/overview'),
+  integrationStatus: () => request<IntegrationStatus>('/api/manager/integrations'),
+  syncPayload: () => request<{ created: number; updated: number; total: number }>('/api/manager/integrations/payload/sync', { method: 'POST' }),
+  syncBitrix: () => request<{ created: number; updated: number; total: number }>('/api/manager/integrations/bitrix/sync', { method: 'POST' }),
   managerUsers: () => request<Array<User & { preference: Preference | null; favorite_count: number; conversation_count: number }>>('/api/manager/users'),
   updateCardsAccess: (id: number, enabled: boolean) => request<User>(`/api/manager/users/${id}/cards-access`, { method: 'PATCH', body: JSON.stringify({ enabled }) }),
   managerUser: (id: number) => request<ManagerDetails>(`/api/manager/users/${id}`),
